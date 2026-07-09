@@ -47,7 +47,10 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 
 ---
 
-## Autonomous mode (`halo-go`)
+## Autonomous mode (`/go` · `halo-go`)
+
+**Permanent build loop (preferred):** type **`/go`** in the Grok TUI (aliases `/halo-go`, `/halo-loop`).  
+That runs `setup-halo-loop.sh` → `autonomous=true` + `.halo/loop.json active` + Stop re-injects `NEXT_PROMPT` each turn.
 
 If human says **go** / **just build** / **don't ask** / **walk away**, OR `state.autonomous === true`:
 
@@ -56,7 +59,8 @@ If human says **go** / **just build** / **don't ask** / **walk away**, OR `state
 3. Drive phase machine until hard stop (see skill).
 4. After every unit: refresh `.halo/NEXT_PROMPT.md` (`halo continue`).
 5. When session must end with work left: headless re-entry via `halo continue --spawn` or `/goal` / `/loop` (see `docs/GROK-BUILD.md`).
-6. CLI: `halo go` · `halo continue` · `halo link-skills` · `halo go --off`.
+6. CLI: `halo go` · `halo loop` · `halo continue` · `halo go --off` · `halo loop-cancel`.
+7. Cancel slash: `/stop-loop` or `/halo-loop-cancel`.
 
 Hard stops still bind (denylist, probe, kill switch, 3 fails, prod). Autonomy ≠ skip evidence.
 
