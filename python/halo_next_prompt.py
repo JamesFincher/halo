@@ -164,6 +164,38 @@ def readiness_blockers(repo: Path) -> list[str]:
     return out[:8]
 
 
+def feature_summary(repo: Path) -> dict[str, Any]:
+    try:
+        from halo_features import summary
+
+        return summary(repo)
+    except Exception:
+        data = _json(repo / ".halo" / "feature-list.json")
+        feats = data.get("features") or []
+        pending = [f for f in feats if not f.get("passes")]
+        return {
+            "total": len(feats),
+            "passed": len(feats) - len(pending),
+            "remaining": len(pending),
+            "all_pass": bool(feats) and not pending,
+            "next": pending[0] if pending else None,
+        }
+
+
+def progress_tail(repo: Path, n: int = 8) -> str:
+    try:
+        from halo_progress import tail
+
+        rows = tail(repo, n)
+        if not rows:
+            return "(no progress.jsonl yet — append after each unit)"
+        return "\n".join(
+            f"- {r.get('at')} `{r.get('event')}` {r.get('note') or r.get('id') or ''}" for r in rows
+        )
+    except Exception:
+        return _tail_lines(repo / ".halo" / "progress.md", n)
+
+
 def evidence_summary(repo: Path) -> str:
     ev = repo / ".halo" / "evidence"
     if not ev.is_dir():
@@ -357,6 +389,8 @@ def build_prompt(
     stories = pending_stories(repo)
     blockers = readiness_blockers(repo)
     evidence = evidence_summary(repo)
+    feats = feature_summary(repo)
+    prog = progress_tail(repo)
     last_asst = extract_last_assistant(transcript_path)
     turn_issues = detect_issues_from_last_turn(last_asst, str(phase))
 
@@ -439,8 +473,15 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 {stack_s}
 ```
 
-### Pending work
+### Feature list (machine truth — passes: bool)
+- total={feats.get('total')} passed={feats.get('passed')} remaining={feats.get('remaining')} all_pass={feats.get('all_pass')}
+- **next failing feature:** {json.dumps(feats.get('next'), indent=2) if feats.get('next') else '(none — all pass or list empty; sync with halo features sync)'}
+
+### Pending work (markdown view)
 {stories_list}
+
+### Progress log (tail)
+{prog}
 
 ### Readiness gaps
 {blockers_list}
@@ -496,26 +537,29 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 
 ---
 
+## Session boot (every cold inject — do first)
+
+1. `export HALO_SYSTEM={halo_sys}`
+2. Read: state.json, baton.md, feature-list.json summary, progress.md tail, git log -5
+3. If feature-list empty but STORIES exist: `python3 {halo_sys}/python/halo_features.py sync --repo {repo}`
+4. Pick **one** feature with `passes: false` (or phase work if not in build yet)
+
 ## Output contract (end of turn)
 
-1. Perform the work (tools/CLI). Prefer:
-   - `$HALO_SYSTEM/scripts/halo …`
-   - `$HALO_SYSTEM/python/…`
-2. Append 1–5 lines to `.halo/autonomous-log.md` with **what you decided and why** (not questions).
-3. Update `.halo/baton.md` with: phase, what shipped, next unit, landmines.
-4. Refresh next inject (always):
-   ```
-   python3 {halo_sys}/python/halo_next_prompt.py --repo {repo} --write
-   ```
-5. If this unit finishes the product (no pending work / phase complete), write baton accordingly and emit:
-   `<promise>HALO_COMPLETE</promise>`
-6. If hard-stopped, set status/baton clearly — do not pretend success.
+1. Perform the work (tools/CLI). Prefer `$HALO_SYSTEM/scripts/halo` and `$HALO_SYSTEM/python/`.
+2. **Test ratchet:** never delete or weaken tests to go green. Fix code or mark feature still failing.
+3. If a feature is truly done (tests green + AC met):  
+   `python3 {halo_sys}/python/halo_features.py pass --repo {repo} --id Sxxx --note "…"`
+4. Append progress:  
+   `python3 {halo_sys}/python/halo_progress.py add --repo {repo} --event unit --note "…"`
+5. Append 1–5 lines to `.halo/autonomous-log.md` (decisions, not questions).
+6. Update `.halo/baton.md`.
+7. Refresh inject: `python3 {halo_sys}/python/halo_next_prompt.py --repo {repo} --write`
+8. Emit `<promise>HALO_COMPLETE</promise>` **only if** every feature-list item has `passes: true` (or phase=complete with empty list). Lying ends the loop incorrectly — the Stop hook will reject false promises.
+9. Prefer a git commit per completed unit when safe.
 
-### Quality bar for this turn
-- One coherent unit of progress (not a tour of the repo).
-- Observable outcome (files, tests, probe, phase advance).
-- Custom to **this** product/state — do not re-explain Halo architecture.
-- No filler, no asking, no waiting.
+### Quality bar
+- One unit only. Observable outcome. No asking. No test deletion. No fake pass.
 
 ---
 

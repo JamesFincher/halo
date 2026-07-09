@@ -33,16 +33,28 @@
 - [x] halo doctor --strict
 - [x] halo-go autonomous
 
+## Slice 2.6 — Peer-harness gap close ✅
+
+- [x] `docs/GAPS.md` register vs Anthropic / Ralph / open-ralph / grok-halo
+- [x] `feature-list.json` machine done-tracking (`halo_features.py`)
+- [x] `progress.jsonl` / `progress.md` cold-session log
+- [x] Struggle detection + false completion-promise reject on Stop
+- [x] Test ratchet doctrine + build skill
+- [x] Single-runner lock helper
+- [x] Engineered NEXT_PROMPT includes feature list + progress + boot ritual
+
 ## Slice 3 — Build loop
 
 - [x] `halo-build` / `halo-verify` / `halo-deploy` skill contracts
+- [x] Self-authored NEXT_PROMPT from live state (engineered)
 - [ ] Port grok-halo v2 runner automation (budget, Arena, scores)
-- [ ] Self-authored next prompts from baton + remaining stories
+- [ ] Auto-commit per story unit
 
 ## Slice 4 — Walk-away runner
 
 - [x] `scripts/halo` surface (status/stop/resume/…)
-- [ ] Background loop lock + daily caps
+- [x] Runner lock helper (`.halo/runner.lock`)
+- [ ] Daily token/cycle budget hard stop
 - [ ] Human dashboard notes / voice optional
 
 ## Non-goals near-term
@@ -50,3 +62,5 @@
 - Multi-agent cloud fleet
 - Non-Grok plugin manifests
 - Auto production promote
+
+See **docs/GAPS.md** for full severity table.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -251,6 +252,16 @@ This file is overwritten by the readiness tool with the live checklist.
         "`python3 …/halo_state.py lock-specs --repo .` then readiness\n",
         encoding="utf-8",
     )
+    # machine feature list (done tracking)
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from halo_features import sync_from_stories
+        from halo_progress import append as progress_append
+
+        sync_from_stories(repo)
+        progress_append(repo, "spec_pack_written", {"files": len(written)})
+    except Exception:
+        pass
     return written
 
 

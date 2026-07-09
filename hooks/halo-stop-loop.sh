@@ -93,6 +93,81 @@ try:
 except Exception:
     transcript = ""
 
+
+def last_assistant_text(path: str) -> str:
+    if not path or not Path(path).exists():
+        return ""
+    try:
+        lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    texts = []
+    for line in lines[-150:]:
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        role = obj.get("role") or (obj.get("message") or {}).get("role")
+        if role != "assistant":
+            continue
+        content = obj.get("message", {}).get("content") or obj.get("content") or []
+        if isinstance(content, str):
+            texts.append(content)
+        elif isinstance(content, list):
+            for b in content:
+                if isinstance(b, dict) and b.get("type") == "text":
+                    texts.append(str(b.get("text") or ""))
+    return texts[-1] if texts else ""
+
+
+last_text = last_assistant_text(transcript)
+
+# Completion promise (Ralph) — only honor if feature-list all pass OR phase complete
+promise = loop.get("completion_promise") or "HALO_COMPLETE"
+if last_text and f"<promise>{promise}</promise>" in last_text.replace(" ", ""):
+    # also accept spaced form
+    pass
+if last_text and f"<promise>{promise}</promise>" in last_text:
+    fl = {}
+    fl_p = cwd / ".halo" / "feature-list.json"
+    if fl_p.exists():
+        try:
+            fl = json.loads(fl_p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            fl = {}
+    feats = fl.get("features") or []
+    all_pass = bool(feats) and all(f.get("passes") for f in feats)
+    if phase == "complete" or all_pass or not feats:
+        # allow stop only if features all pass, or no features yet but phase complete
+        if phase == "complete" or all_pass:
+            loop["active"] = False
+            loop["stopped_reason"] = "completion_promise"
+            loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+            raise SystemExit(0)
+        # promise without evidence — continue with a scolding inject below via prompt
+
+# Struggle detection: no git changes for N consecutive iterations
+try:
+    import subprocess as sp
+
+    dirty = sp.check_output(["git", "status", "--porcelain"], cwd=cwd, text=True, stderr=sp.DEVNULL)
+    head = sp.check_output(["git", "rev-parse", "HEAD"], cwd=cwd, text=True, stderr=sp.DEVNULL).strip()
+except Exception:
+    dirty, head = "?", loop.get("last_head")
+
+no_progress = (not dirty or not str(dirty).strip()) and head == loop.get("last_head")
+if no_progress and head and head != "?":
+    loop["stagnant_iters"] = int(loop.get("stagnant_iters") or 0) + 1
+else:
+    loop["stagnant_iters"] = 0
+loop["last_head"] = head if head != "?" else loop.get("last_head")
+
+if int(loop.get("stagnant_iters") or 0) >= 3:
+    # force inject that demands progress or escalate — still block stop
+    struggle = True
+else:
+    struggle = False
+
 # update loop counter first so prompt can include iteration
 loop["active"] = True
 loop["iteration"] = next_iter
@@ -128,6 +203,25 @@ if not next_p.exists():
     raise SystemExit(0)
 
 prompt = next_p.read_text(encoding="utf-8")
+if struggle:
+    prompt = (
+        "## STRUGGLE DETECTED\n"
+        f"No git progress for {loop.get('stagnant_iters')} consecutive iterations "
+        "(same HEAD, clean tree). You are thrashing.\n\n"
+        "THIS TURN: either (1) make a real file/test change that advances the next "
+        "feature-list item with passes:false, or (2) run `halo escalate` with root cause "
+        "and stop looping. Do NOT claim completion. Do NOT delete tests.\n\n"
+        "---\n\n" + prompt
+    )
+if last_text and f"<promise>{promise}</promise>" in last_text:
+    # false promise without all_pass
+    prompt = (
+        f"## INVALID COMPLETION PROMISE\n"
+        f"You emitted <promise>{promise}</promise> but feature-list is not all passes "
+        f"and phase is not complete. That is forbidden. Continue real work.\n\n---\n\n"
+        + prompt
+    )
+
 if not prompt.strip():
     raise SystemExit(0)
 
@@ -154,7 +248,10 @@ if state.get("self_prompt_spawn") and os.environ.get("HALO_STOP_SPAWN") == "1":
             start_new_session=True,
         )
 
-msg = f"Halo loop iteration {next_iter}/{max_iter} | skill halo-go | never ask | hard stops only"
+msg = (
+    f"Halo loop {next_iter}/{max_iter} | halo-go | never ask"
+    + (" | STRUGGLE" if struggle else "")
+)
 # Ralph / Claude Code Stop protocol — reason is re-injected as next user message
 out = {
     "decision": "block",

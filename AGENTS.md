@@ -64,11 +64,14 @@ Hard stops still bind (denylist, probe, kill switch, 3 fails, prod). Autonomy �
 
 1. **No code for product features before specs locked** (`spec_status: locked` in state). (Autonomous mode auto-locks after writing specs.)
 2. **No deploy URL to human without live probe** (HTTP 200/30x on real URL). Fail → fix, never share 404.
-3. **Whole-lifecycle foresight at readiness** — every integration for v1 asked once (API keys, CLI auth, deploy targets).
+3. **Whole-lifecycle foresight at readiness** — inventory every dependency *class* the product needs to live in the world before scaffold freezes structure.
 4. **Async demos** — do not block loop waiting for human approval of demos (unless state says `require_human_gate: true`).
 5. **Grok Build first** — skills live in `.grok/skills/`. Python in `python/`.
 6. **Intake**: interactive only when `autonomous` is false. If autonomous → single-pass defaults.
 7. **PRD is what not how** — user-facing behavior, not library recipes (stack names ok; internal algorithms not).
+8. **Test ratchet** — never delete or weaken tests to go green. Fix code or fix the test to match locked AC.
+9. **Done tracking** — `.halo/feature-list.json` `passes: bool` is machine truth. Markdown STORIES alone is not enough. Sync with `halo_features.py sync`. Mark pass only after verified green.
+10. **Progress log** — append via `halo_progress.py` after each unit so cold sessions recover.
 
 ---
 

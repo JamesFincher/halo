@@ -47,6 +47,10 @@ halo — autonomous product development system
   link-skills [path]       Symlink Halo skills into product .grok/skills
   loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
   loop-cancel [path]       Disarm true loop
+  features [path] …        sync|summary|pass --id Sxxx (done tracking)
+  progress [path] …        add|tail progress log
+  lock-runner [path]       acquire single-runner lock
+  unlock-runner [path]     release runner lock
   workflows                Show workflow map path
   help                     This help
 EOF
@@ -379,6 +383,65 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     path="$(repo_arg "${1:-.}")"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     "$PY" "$HALO_SYSTEM/python/halo_evidence.py" --repo "$path"
+    ;;
+
+  features)
+    path="."
+    rest=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        sync|summary|pass|fail) rest+=("$1"); shift ;;
+        --*) rest+=("$1"); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ ${#rest[@]} -eq 0 ]]; then rest=(summary); fi
+    cmd="${rest[0]}"
+    unset 'rest[0]'
+    rest=("${rest[@]}")
+    case "$cmd" in
+      sync) "$PY" "$HALO_SYSTEM/python/halo_features.py" sync --repo "$path" ;;
+      summary) "$PY" "$HALO_SYSTEM/python/halo_features.py" summary --repo "$path" ;;
+      pass) "$PY" "$HALO_SYSTEM/python/halo_features.py" pass --repo "$path" "${rest[@]}" ;;
+      fail) "$PY" "$HALO_SYSTEM/python/halo_features.py" fail --repo "$path" "${rest[@]}" ;;
+      *) die "features: sync|summary|pass|fail" ;;
+    esac
+    ;;
+
+  progress)
+    path="."
+    sub=tail
+    note=""
+    event="note"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        add|tail) sub="$1"; shift ;;
+        --note) note="$2"; shift 2 ;;
+        --event) event="$2"; shift 2 ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ "$sub" == "add" ]]; then
+      "$PY" "$HALO_SYSTEM/python/halo_progress.py" add --repo "$path" --event "$event" --note "$note"
+    else
+      "$PY" "$HALO_SYSTEM/python/halo_progress.py" tail --repo "$path"
+    fi
+    ;;
+
+  lock-runner)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_lock.py" --repo "$path" --acquire --owner "halo-$$"
+    ;;
+
+  unlock-runner)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_lock.py" --repo "$path" --release --owner "halo-$$"
     ;;
 
   workflows)

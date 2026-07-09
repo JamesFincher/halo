@@ -22,6 +22,21 @@ description: One autonomous build cycle — pick story/milestone unit, TDD, veri
 11. **Evidence** — write certs under `.halo/evidence/`  
 12. **Baton** — next unit; warm-start note  
 
+## Test ratchet (non-negotiable)
+
+- **Never delete, skip, or gut tests** to make the suite green.
+- If a test is wrong, fix the test to match locked AC — do not remove coverage.
+- Mark feature `passes: true` only after GREEN suite + AC map:
+  `python3 $HALO_SYS/python/halo_features.py pass --repo . --id Sxxx`
+
+## After each unit
+
+```bash
+python3 $HALO_SYS/python/halo_progress.py add --repo . --event story_done --note "Sxxx …"
+python3 $HALO_SYS/python/halo_next_prompt.py --repo . --write
+# prefer: git commit -m "Sxxx: …"
+```
+
 ## Hard stops
 
 - status PAUSED / BLOCKED / ESCALATED  

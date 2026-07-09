@@ -52,8 +52,23 @@ def cmd_init(args: argparse.Namespace) -> None:
         "arena",
         "logs",
         "escalations",
+        "prompt-history",
     ):
         (halo / sub).mkdir(parents=True, exist_ok=True)
+
+    # cold-session artifacts (Anthropic-style progress + feature list)
+    prog = halo / "progress.md"
+    if not prog.exists():
+        prog.write_text(
+            "# Progress\n\nAppend-only log for cold sessions. Prefer `halo_progress.py add`.\n\n",
+            encoding="utf-8",
+        )
+    fl = halo / "feature-list.json"
+    if not fl.exists():
+        fl.write_text(
+            json.dumps({"version": 1, "features": [], "updated_at": None}, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     if state_path(repo).exists() and not args.force:
         raise SystemExit("state exists; use --force to overwrite")

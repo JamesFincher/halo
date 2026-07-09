@@ -67,6 +67,9 @@ REQUIRED_PYTHON = [
     "halo_catalog.py",
     "halo_next_prompt.py",
     "halo_link_skills.py",
+    "halo_features.py",
+    "halo_progress.py",
+    "halo_lock.py",
 ]
 
 
@@ -144,6 +147,21 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
 
     if state.get("autonomous") and state.get("require_human_gate") is True:
         issues.append({"level": "warn", "code": "auto_gate_conflict", "item": "autonomous but require_human_gate"})
+
+    fl = repo / ".halo" / "feature-list.json"
+    if state.get("spec_status") == "locked" and not fl.exists():
+        issues.append({"level": "warn", "code": "no_feature_list", "item": "run halo_features.py sync"})
+    if fl.exists():
+        try:
+            feats = json.loads(fl.read_text()).get("features") or []
+            if state.get("phase") == "build" and not feats:
+                issues.append({"level": "warn", "code": "empty_feature_list", "item": "sync from STORIES.md"})
+        except json.JSONDecodeError:
+            issues.append({"level": "error", "code": "feature_list_corrupt", "item": "feature-list.json"})
+
+    skills = repo / ".grok" / "skills" / "halo-go"
+    if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
+        issues.append({"level": "warn", "code": "skills_not_linked", "item": "run halo link-skills"})
 
     # evidence validate if any
     try:
