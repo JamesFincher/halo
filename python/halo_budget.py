@@ -186,16 +186,16 @@ def main() -> None:
         print(json.dumps({"ok": True, "halted": True, "reason": args.reason}, indent=2))
         return
     if args.cmd == "show":
-        print(
-            json.dumps(
-                {
-                    "budget": load_budget(repo),
-                    "spend": _json(repo / ".halo" / "spend.json"),
-                    "loop": _json(repo / ".halo" / "loop.json"),
-                },
-                indent=2,
-            )
-        )
+        # D097: spend + max_iterations always co-present for operators
+        b = load_budget(repo)
+        out = {
+            "budget": b,
+            "spend": _json(repo / ".halo" / "spend.json") or {},
+            "loop": _json(repo / ".halo" / "loop.json") or {},
+            "max_iterations": b.get("max_iterations"),
+        }
+        print(json.dumps(out, indent=2))
+        raise SystemExit(0)
 
 
 if __name__ == "__main__":

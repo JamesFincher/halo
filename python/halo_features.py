@@ -361,8 +361,50 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
     (
         "arena --spawn-check writes ARENA_SPAWN_CHECK cert with feature id",
         ['evidence file contains cert and feature', 'CLI exit 0 on APPROVED'],
-    )
-
+    ),
+    # Batch 14+ — anti thrash after D096
+    (
+        "halo budget show prints spend and max_iterations together",
+        [
+            "budget show JSON has spend and budget.max_iterations",
+            "CLI exit 0",
+        ],
+    ),
+    (
+        "feature summary JSON includes next.requires_code when present",
+        [
+            "summary next object carries requires_code bool",
+            "null next when all_pass",
+        ],
+    ),
+    (
+        "halo probe --url rejects empty URL with non-zero exit",
+        [
+            "empty or missing url exits non-zero",
+            "help lists --url",
+        ],
+    ),
+    (
+        "baton.md records recommendation and next id after planner run",
+        [
+            "write_plan always rewrites baton recommendation line",
+            "next id dash when all_pass",
+        ],
+    ),
+    (
+        "cycle-smoke evidence cert field is GREEN_TEST",
+        [
+            "D-cycle-smoke-latest.json has cert GREEN_TEST",
+            "exit_code 0",
+        ],
+    ),
+    (
+        "halo handoff writes .halo/handoff.md with phase and next feature",
+        [
+            "handoff.md created non-empty",
+            "includes phase and next feature id or all_pass",
+        ],
+    ),
 ]
 
 
