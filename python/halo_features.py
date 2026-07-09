@@ -451,6 +451,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "0 when trajectories dir missing",
         ],
     ),
+    # Batch 19+ — trajectories parity with scores culture
+    (
+        "features summary JSON includes top-level trajectories_count",
+        [
+            "summary has trajectories_count int (0 when dir missing/empty)",
+            "counts GT-*.json under .halo/trajectories/",
+        ],
+    ),
+    (
+        "halo scores trajectories list CLI prints count and latest id",
+        [
+            "python halo_scores.py trajectories --repo exits 0",
+            "JSON has count and latest fields for GT-*.json",
+        ],
+    ),
+    (
+        "doctor warns when dogfood autonomous and trajectories directory empty",
+        [
+            "level warn code trajectories_empty",
+            "not an error so strict still passes",
+        ],
+    ),
 ]
 
 
@@ -753,6 +775,21 @@ def _scores_count(repo: Path) -> int:
         return 0
 
 
+def _trajectories_count(repo: Path) -> int:
+    """Count GT-*.json golden trajectories under .halo/trajectories/ (D112)."""
+    traj = repo / ".halo" / "trajectories"
+    if not traj.is_dir():
+        return 0
+    try:
+        return sum(
+            1
+            for p in traj.iterdir()
+            if p.is_file() and p.suffix == ".json" and p.name.upper().startswith("GT-")
+        )
+    except OSError:
+        return 0
+
+
 def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     """Pass/fail counts. Optionally auto-seed compounding batch when all_pass (D030)."""
     if compound:
@@ -773,6 +810,7 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
         "all_pass": total > 0 and passed == total,
         "next": nxt,
         "scores_count": _scores_count(repo),
+        "trajectories_count": _trajectories_count(repo),
         "features": feats,
     }
 
