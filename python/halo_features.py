@@ -314,6 +314,30 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         "Compound seed skip reason no_new_roadmap triggers roadmap_exhausted in plan-latest",
         ["plan-latest.json has roadmap_exhausted bool", "true only when last_reason matches"],
     ),
+    (
+        "halo status prints budget verdict and watchdog age",
+        ["status human output includes budget ALLOW/PAUSE", "watchdog heartbeat age when present"],
+    ),
+    (
+        "Arena verify refuses pass without GREEN evidence path",
+        ["arena NEEDS_REVISION when evidence missing", "writes arena cert"],
+    ),
+    (
+        "drive spawn --force clears dead lock and restarts",
+        ["--force reaps dead pid and spawns", "alive pid without force refuses"],
+    ),
+    (
+        "plugin.json version bumps when continuous-drive surface changes",
+        ["document version in plugin.json matches CHANGELOG or TRUE-LOOP note", "minor bump for this release"],
+    ),
+    (
+        "scripts/halo help lists plan watchdog cycle-smoke dogfood-reinstantiate",
+        ["help text contains all continuous-drive verbs", "regression test on help string"],
+    ),
+    (
+        "compound seed force refuses when backlog has open requires_code units",
+        ["force does not seed over pending features", "reason not_all_pass"],
+    ),
 ]
 
 

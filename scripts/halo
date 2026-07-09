@@ -157,6 +157,47 @@ print(f"demo:     {s.get('last_demo_url')}")
 print(f"profile:  {s.get('scaffold_profile')}")
 print(feat_line)
 print(drive_line)
+# D085: budget verdict + watchdog heartbeat age
+budget_line = "budget:   (n/a)"
+try:
+    from halo_budget import check as budget_check
+    bv = budget_check(p)
+    v = str(bv.get("verdict") or "?")
+    ui = "PAUSE" if v == "HALT" else v
+    budget_line = f"budget:   {ui} reason={bv.get('reason')}"
+except Exception as e:
+    budget_line = f"budget:   (error: {e})"
+print(budget_line)
+wd_line = "watchdog: (none)"
+try:
+    import time as _time
+    from datetime import datetime, timezone
+    wpid_p = p/".halo"/"logs"/"watchdog.pid"
+    whb_p = p/".halo"/"logs"/"watchdog-heartbeat.json"
+    wpid = None
+    walive = False
+    if wpid_p.exists():
+        wpid = int(wpid_p.read_text().strip() or "0") or None
+        if wpid:
+            try:
+                os.kill(wpid, 0)
+                walive = True
+            except OSError:
+                walive = False
+    age = None
+    if whb_p.exists():
+        hb = json.loads(whb_p.read_text())
+        at = hb.get("at")
+        if at:
+            ts = str(at).replace("Z", "+00:00")
+            then = datetime.fromisoformat(ts)
+            if then.tzinfo is None:
+                then = then.replace(tzinfo=timezone.utc)
+            age = max(0, int((datetime.now(timezone.utc) - then).total_seconds()))
+    wd_line = f"watchdog: pid={wpid} alive={walive} heartbeat_age={age}"
+except Exception as e:
+    wd_line = f"watchdog: (error: {e})"
+print(wd_line)
 baton = p/".halo/baton.md"
 if baton.exists():
     print("--- baton ---")

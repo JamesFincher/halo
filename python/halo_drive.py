@@ -176,8 +176,26 @@ def spawn_headless(
     if not grok:
         return {"ok": False, "error": "grok not on PATH"}
 
+    if force:
+        # D087: --force reaps dead/stale lock then re-acquires
+        clear_stale_drive_lock(repo)
+        lp = drive_lock_path(repo)
+        if lp.exists():
+            try:
+                data = json.loads(lp.read_text(encoding="utf-8"))
+                pid = data.get("pid")
+                if not pid or not _pid_alive(int(pid)):
+                    lp.unlink(missing_ok=True)
+                # alive lock: force still refuses to kill live peer (safe)
+            except (json.JSONDecodeError, OSError, ValueError, TypeError):
+                lp.unlink(missing_ok=True)
+
     if not acquire_drive_lock(repo):
-        return {"ok": False, "error": "drive.lock held (another driver running)"}
+        return {
+            "ok": False,
+            "error": "drive.lock held (another driver running)",
+            "hint": "use --force only reaps dead locks; stop live driver first",
+        }
 
     prompt = ensure_next_prompt(repo, halo_sys)
     if not prompt.exists():
@@ -365,25 +383,7 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             feat_summary = {"error": str(e)}
         wd = _watchdog_status(repo)
-        budget: dict[str, Any] = {}
-        try:
-            from halo_budget import check as budget_check
-
-            b = budget_check(repo)
-            budget = {
-                "verdict": b.get("verdict"),  # ALLOW | HALT (map DEGRADE if present)
-                "reason": b.get("reason"),
-            }
-            # Normalize for roadmap wording ALLOW|DEGRADE|PAUSE
-            v = str(budget.get("verdict") or "")
-            if v == "HALT":
-                budget["verdict_ui"] = "PAUSE"
-            elif v == "ALLOW":
-                budget["verdict_ui"] = "ALLOW"
-            else:
-                budget["verdict_ui"] = v or "ALLOW"
-        except Exception as e:  # noqa: BLE001
-            budget = {"verdict": "ALLOW", "verdict_ui": "ALLOW", "error": str(e)}
+        budget = _budget_status(repo)
         print(
             json.dumps(
                 {

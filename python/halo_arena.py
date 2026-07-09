@@ -92,6 +92,25 @@ def pass_a_adversarial(repo: Path, feature_id: str) -> dict[str, Any]:
     id_green += list(ev_dir.glob(f"*{feature_id}*green*")) if ev_dir.is_dir() else []
     if not green_ok and not id_green:
         reasons.append("no GREEN evidence for suite / feature")
+    else:
+        # D086: path must exist and look green (not empty stub)
+        green_paths = id_green or []
+        if not green_paths and ev_dir.is_dir():
+            green_paths = [p for p in ev_dir.iterdir() if p.is_file() and "green" in p.name.lower()]
+        for gp in green_paths[:3]:
+            try:
+                raw = gp.read_text(encoding="utf-8")
+                if not raw.strip():
+                    reasons.append(f"empty GREEN evidence path: {gp.name}")
+                else:
+                    try:
+                        j = json.loads(raw)
+                        if j.get("cert") is None and j.get("ok") is not True and j.get("exit_code") not in (0, "0"):
+                            reasons.append(f"GREEN evidence weak (no cert/ok): {gp.name}")
+                    except json.JSONDecodeError:
+                        pass  # text logs ok
+            except OSError:
+                reasons.append(f"unreadable GREEN evidence: {gp.name}")
 
     if feat.get("passes") and not (feat.get("verified_at") or feat.get("evidence")):
         reasons.append("feature marked passes without verified_at/evidence")

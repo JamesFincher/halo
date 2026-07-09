@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -209,7 +210,32 @@ def check_file(path: Path) -> dict[str, Any]:
     return {"ok": False, "message": "empty evidence", "path": str(path)}
 
 
+def check_cert_schema(path: Path) -> tuple[bool, str]:
+    """Path-oriented cert schema check (D082 tests)."""
+    path = Path(path)
+    if not path.is_file():
+        return False, "missing file"
+    data = _json(path)
+    if data is None:
+        text = _read(path)
+        if text.strip():
+            return True, "legacy text evidence"
+        return False, "empty or invalid JSON"
+    return validate_cert_schema(data)
+
+
 def main() -> None:
+    # Support both: halo_evidence --check PATH  and  halo_evidence check --file PATH
+    argv = sys.argv[1:]
+    if argv and argv[0] == "check":
+        # subcommand style used by unit tests
+        p = argparse.ArgumentParser(prog="halo_evidence check")
+        p.add_argument("--file", required=True, help="evidence file path")
+        a = p.parse_args(argv[1:])
+        ok, msg = check_cert_schema(Path(a.file))
+        print(json.dumps({"ok": ok, "message": msg, "path": a.file}, indent=2))
+        raise SystemExit(0 if ok else 2)
+
     p = argparse.ArgumentParser(prog="halo_evidence")
     p.add_argument("--repo", default=".")
     p.add_argument("--require", action="append", default=[], help="required cert kinds e.g. green-test")
