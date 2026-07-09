@@ -247,6 +247,7 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
             issues.append({"level": "error", "code": "feature_list_corrupt", "item": "feature-list.json"})
 
     if state.get("autonomous"):
+        # Fail closed: autonomous without an active true loop is a broken drive (D037)
         loop_p = repo / ".halo" / "loop.json"
         if loop_p.exists():
             try:
@@ -254,17 +255,17 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                 if not loop.get("active"):
                     issues.append(
                         {
-                            "level": "warn",
+                            "level": "error",
                             "code": "loop_inactive",
                             "item": "autonomous but loop.json active=false — run halo go or halo loop",
                         }
                     )
             except json.JSONDecodeError:
-                issues.append({"level": "warn", "code": "loop_corrupt", "item": "loop.json"})
+                issues.append({"level": "error", "code": "loop_corrupt", "item": "loop.json"})
         else:
             issues.append(
                 {
-                    "level": "warn",
+                    "level": "error",
                     "code": "loop_not_armed",
                     "item": "autonomous without loop.json — run halo go",
                 }
