@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cycle-smoke evidence writer — surfaces scores/trajectories health (D138).
+"""Cycle-smoke evidence writer — surfaces scores/trajectories health (D138/D139).
 
 Invoked by scripts/halo-cycle-smoke.sh after smoke steps pass.
 Does not run smoke itself (avoids unittest recursion).
@@ -18,7 +18,7 @@ from halo_features import summary
 
 
 def build_evidence(repo: Path) -> dict[str, Any]:
-    """Build GREEN_TEST payload including scores/trajectories counts + match."""
+    """Build GREEN_TEST payload including scores/trajectories counts, match, latest ids."""
     fs = summary(Path(repo), compound=False)
     sc = int(fs.get("scores_count") or 0)
     tc = int(fs.get("trajectories_count") or 0)
@@ -26,6 +26,13 @@ def build_evidence(repo: Path) -> dict[str, Any]:
         match = bool(fs.get("scores_trajectories_match"))
     else:
         match = sc == tc
+    # D139: latest ids — null when empty/missing (summary already normalizes)
+    lsid = fs.get("latest_score_id")
+    ltid = fs.get("latest_trajectory_id")
+    if lsid is not None and not str(lsid).strip():
+        lsid = None
+    if ltid is not None and not str(ltid).strip():
+        ltid = None
     return {
         "cert": "GREEN_TEST",
         "feature": "cycle-smoke",
@@ -36,6 +43,8 @@ def build_evidence(repo: Path) -> dict[str, Any]:
         "scores_count": sc,
         "trajectories_count": tc,
         "scores_trajectories_match": match,
+        "latest_score_id": lsid,
+        "latest_trajectory_id": ltid,
     }
 
 
