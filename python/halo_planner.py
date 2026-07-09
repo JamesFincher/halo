@@ -143,8 +143,9 @@ def _recommend(
     if isinstance(nxt, dict) and nxt.get("id"):
         req = " (requires_code — must land factory FILE_DIFF)" if nxt.get("requires_code") else ""
         return f"ONE unit: {nxt.get('id')} — {nxt.get('description')}{req}"
+    # D159: compounding/dogfood with empty scores dir → scores_missing warn
     dogfood = bool(state.get("dogfood") or state.get("dogfood_mode") == "compounding")
-    if dogfood and scores_count == 0:
+    if dogfood and scores_count is not None and scores_count == 0:
         return (
             "scores_missing: run a requires_code unit so set_pass writes "
             ".halo/scores/S###.json then continue compounding"
@@ -214,6 +215,12 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
     else:
         match = sc == tc
     match_s = "true" if match else "false"
+    # D159: scores_missing true when scores_count == 0 (prefer plan field)
+    if "scores_missing" in plan:
+        scores_missing = bool(plan.get("scores_missing"))
+    else:
+        scores_missing = sc == 0
+    missing_s = "true" if scores_missing else "false"
     baton.write_text(
         "# Baton — planner refresh\n"
         f"- at: {plan.get('at')}\n"
@@ -221,6 +228,7 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
         f"- next: **{nid}** — {desc[:120]}\n"
         f"- features: {plan.get('features')}\n"
         f"- scores_count: {sc}\n"
+        f"- scores_missing: {missing_s}\n"
         f"- trajectories_count: {tc}\n"
         f"- latest_score_id: {latest_score}\n"
         f"- latest_trajectory_id: {latest_traj}\n"
