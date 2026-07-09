@@ -83,6 +83,7 @@ REQUIRED_PYTHON = [
     "halo_commit.py",
     "halo_stories_sync.py",
     "halo_drive.py",
+    "halo_planner.py",
 ]
 
 

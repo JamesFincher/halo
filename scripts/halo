@@ -55,6 +55,8 @@ halo — autonomous product development system
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds dogfood .halo/)
   drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
+  plan [path]              Refresh NEXT_PROMPT via background planner (no wait)
+  watchdog [path] [secs]   Planner+spawn loop (default 15s; better than /loop 60s)
   cycle-smoke [path]       Factory dogfood smoke (compile+doctor+hygiene)
   dogfood-reinstantiate [path]
                            Reset Halo-on-Halo control plane + compounding backlog
@@ -591,6 +593,19 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
   cycle-smoke)
     path="$(repo_arg "${1:-.}")"
     bash "$HALO_SYSTEM/scripts/halo-cycle-smoke.sh" "$path"
+    ;;
+
+  plan)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_planner.py" --repo "$path" --halo-system "$HALO_SYSTEM"
+    ;;
+
+  watchdog)
+    path="$(repo_arg "${1:-.}")"
+    secs="${2:-15}"
+    export HALO_SYSTEM
+    exec bash "$HALO_SYSTEM/scripts/halo-watchdog.sh" "$path" "$secs"
     ;;
 
   dogfood-reinstantiate)

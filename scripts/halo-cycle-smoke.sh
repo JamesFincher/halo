@@ -17,12 +17,13 @@ fi
 echo "[cycle-smoke] 2/4 doctor --strict"
 python3 "$HALO_SYS/python/halo_doctor.py" --halo-system "$HALO_SYS" --repo "$ROOT" --strict
 
-echo "[cycle-smoke] 3/4 dogfood hygiene (no tracked .halo)"
+echo "[cycle-smoke] 3/4 dogfood hygiene (denylist + gitignore)"
+# D044: fail if tracked denylist paths (dogfood control plane + secret patterns)
+python3 "$HALO_SYS/python/halo_denylist.py" check-tracked --repo "$ROOT" || {
+  echo "[cycle-smoke] FAIL: denylist paths in git ls-files" >&2
+  exit 2
+}
 if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  if git -C "$ROOT" ls-files | grep -E '^\.halo/|^\.halo-archive/' ; then
-    echo "[cycle-smoke] FAIL: dogfood paths tracked" >&2
-    exit 2
-  fi
   git -C "$ROOT" check-ignore -q .halo/state.json || {
     echo "[cycle-smoke] FAIL: .halo/ not gitignored" >&2
     exit 2

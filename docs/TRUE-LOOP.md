@@ -1,27 +1,54 @@
 # Halo True Loop — Continuous Drive
 
+## How to STOP the loop
+
+| What | How |
+|------|-----|
+| Halo loop + autonomous | `/stop-loop` or `halo go --off` or `halo loop-cancel` |
+| Watchdog (15s planner+spawn) | `pkill -f halo-watchdog` |
+| Grok TUI `/loop` / scheduler (60s min) | `Ctrl+B` tasks pane → delete · or `scheduler_delete <id>` |
+| Global Stop hook still runs | Harmless if `loop.json` inactive (exits immediately) |
+
+## Why the “one minute” wait happened
+
+Grok’s **`/loop` / `scheduler_create` minimum interval is 60 seconds**.  
+We created a 60s scheduler so the **same TUI chat** got synthetic turns. That felt slow and spammy.
+
+**Better continuous modes (use these):**
+
+| Mode | Latency | Same chat? | Command |
+|------|---------|------------|---------|
+| **Headless chain** | Immediate on turn end | No (background agent) | `/go` (default spawn) |
+| **Watchdog** | ~15s (configurable) | No | `halo watchdog . 15` |
+| **Planner only** | On demand | N/A | `halo plan .` |
+| **TUI /loop** | ≥60s | Yes | Only if you want same-session inject |
+
+## Planner (background study → NEXT_PROMPT)
+
+`python/halo_planner.py` / `halo plan .`:
+
+- Reads state, feature-list, git log, dirty factory files  
+- Writes `.halo/plan-latest.json` + baton recommendation  
+- Regenerates `.halo/NEXT_PROMPT.md` with a **RECOMMENDATION** banner  
+
+Watchdog = planner every N seconds + ensure headless builder alive.  
+That is the “always studying the repo / shaping next prompt” path — deterministic study today; can be upgraded to a dedicated LLM planner headless pass later.
+
 ## Root cause (2026-07): why "armed" still needed a human message
 
 **Grok Build official hooks docs:** only `PreToolUse` is blocking. **`Stop` is passive.**
 
-Halo previously emitted Ralph-compatible:
-
-```json
-{"decision":"block","reason":"<NEXT_PROMPT>"}
-```
-
-That re-injects on **Claude Code**. On **Grok**, the hook runs, files update, but the harness **does not** treat `decision:block` as "inject next user turn". So the agent stops and waits for you.
+Ralph `decision:block` works on Claude Code; Grok ignores it for re-prompt.
 
 ### Fix (current)
 
 | Path | Role |
 |------|------|
-| **Headless spawn** | On Stop (and on `halo go`), `halo_drive.spawn_headless` runs `grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve --max-turns N` |
-| **User Stop hook** | `~/.grok/hooks/halo-true-loop.json` always fires Stop drive |
-| **Optional TUI /loop** | Same-session inject: `/loop 60s $(cat .halo/scheduler-prompt.txt)` |
-| Ralph JSON | Still emitted for Claude-compatible hosts |
-
-`self_prompt_spawn` defaults **ON**. Disable only with `--no-spawn` / `HALO_NO_SPAWN=1`.
+| **Headless spawn** | On Stop + `/go`: `grok --prompt-file NEXT_PROMPT --always-approve` |
+| **Watchdog** | Planner + spawn every 15s (no 60s floor) |
+| **Planner** | Refresh NEXT_PROMPT from live repo study |
+| **TUI /loop** | Optional; min 60s — avoid for dogfood thrash |
+| Ralph JSON | Still emitted for Claude hosts |
 
 ---
 

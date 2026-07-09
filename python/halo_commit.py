@@ -16,8 +16,18 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from halo_denylist import is_denylist_path as _is_denylist_path
+
+# Build artifacts (not secret, but never auto-commit bulk)
+_BUILD_DENY = re.compile(
+    r"(^|/)node_modules/|(^|/)dist/|(^|/)build/",
+    re.I,
+)
+
+# Back-compat export for callers that imported DENY
 DENY = re.compile(
-    r"(^|/)\.env$|(^|/)\.env\.[^/]+$|id_rsa|credentials\.json|(^|/)secrets?/|"
+    r"(^|/)\.env$|(^|/)\.env\.(local|production|prod|development|dev|staging|test)|"
+    r"id_rsa|credentials\.json|(^|/)secrets?/|"
     r"(^|/)node_modules/|(^|/)dist/|(^|/)build/",
     re.I,
 )
@@ -64,7 +74,7 @@ def filter_safe(repo: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     ok: list[str] = []
     bad: list[str] = []
     for p in paths:
-        if DENY.search(p):
+        if _is_denylist_path(p) or _BUILD_DENY.search(p):
             bad.append(f"denylist: {p}")
             continue
         # never stage dogfood control plane when ignored

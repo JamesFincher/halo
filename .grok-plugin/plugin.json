@@ -1,7 +1,7 @@
 {
   "name": "halo",
-  "description": "Autonomous product factory. Slash: /go arms permanent Stop-hook build loop.",
-  "version": "0.7.1",
+  "description": "Halo continuous drive: headless chain + planner. /go /stop-loop. Grok Stop is passive.",
+  "version": "0.8.0",
   "keywords": [
     "halo",
     "autonomous",
