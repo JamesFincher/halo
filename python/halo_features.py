@@ -715,6 +715,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool after mark",
         ],
     ),
+    # Batch 31+ — features pass/fail latest ids + arena score culture
+    (
+        "halo features pass JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "features pass stdout JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo features fail JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "features fail stdout JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo arena JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "arena stdout or cert JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool when summary available",
+        ],
+    ),
 ]
 
 
@@ -797,9 +819,10 @@ def _factory_diff_paths(repo: Path) -> list[str]:
 
 
 def pass_score_fields(repo: Path) -> dict[str, Any]:
-    """D147: scores/trajectories counts + match on features pass/fail stdout JSON.
+    """D147–D148: scores/trajectories surface on features pass/fail stdout JSON.
 
-    Counts are read after mark (post on_feature_pass stubs when passes=true).
+    Counts + match (D147) and latest ids (D148) are read after mark
+    (post on_feature_pass stubs when passes=true).
     Not persisted into feature-list.json — stdout envelope only.
     """
     sc = _scores_count(repo)
@@ -808,6 +831,9 @@ def pass_score_fields(repo: Path) -> dict[str, Any]:
         "scores_count": sc,
         "trajectories_count": tc,
         "scores_trajectories_match": sc == tc,
+        # D148: latest ids (null when empty/missing)
+        "latest_score_id": _latest_score_id(repo),
+        "latest_trajectory_id": _latest_trajectory_id(repo),
     }
 
 
@@ -823,8 +849,9 @@ def set_pass(
     """Mark feature pass/fail. Pass requires evidence unless --force.
 
     requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
-    D147: return value includes scores_count / trajectories_count /
-    scores_trajectories_match (post-mark) for operators + inject.
+    D147–D148: return value includes scores_count / trajectories_count /
+    scores_trajectories_match + latest_score_id / latest_trajectory_id
+    (post-mark) for operators + inject.
     """
     repo = Path(repo)
     data = load_list(repo)
