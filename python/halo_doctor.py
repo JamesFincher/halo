@@ -81,6 +81,7 @@ REQUIRED_PYTHON = [
     "halo_ratchet.py",
     "halo_arena.py",
     "halo_commit.py",
+    "halo_stories_sync.py",
 ]
 
 
@@ -128,6 +129,29 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
         for needle in ("halo go", "autonomous", "probe", "NEXT_PROMPT", "self-prompt"):
             if needle.lower() not in w.lower():
                 issues.append({"level": "warn", "code": "workflows_gap", "item": needle})
+
+
+    hooks = halo_sys / "hooks" / "hooks.json"
+    if not hooks.exists():
+        issues.append({"level": "error", "code": "hooks_missing", "item": "hooks/hooks.json"})
+    else:
+        try:
+            import json as _json
+            hj = _json.loads(hooks.read_text())
+            if "Stop" not in (hj.get("hooks") or {}):
+                issues.append({"level": "warn", "code": "hooks_no_stop", "item": "Stop hook required for /go true loop"})
+        except Exception:
+            issues.append({"level": "warn", "code": "hooks_unreadable", "item": "hooks/hooks.json"})
+    # hint: plugin must be installed for /go slash + Stop
+    if not (halo_sys / "commands" / "go.md").exists():
+        issues.append({"level": "warn", "code": "go_command_missing", "item": "commands/go.md"})
+    else:
+        issues.append({
+            "level": "info",
+            "code": "plugin_hint",
+            "item": "for /go + Stop loop: grok plugin install <halo-path> --trust",
+        })
+
 
     # Factory cleanliness: dogfood control plane must never be git-tracked
     # (clones of Halo are for use on *other* projects — not full of self-instance state)

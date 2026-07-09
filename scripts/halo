@@ -56,6 +56,7 @@ halo — autonomous product development system
                            safe auto-commit (never force-adds dogfood .halo/)
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
+  stories-sync [path]       Sync STORIES.md from feature-list passes
   workflows                Show workflow map path
   help                     This help
 EOF
@@ -509,6 +510,13 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     args=(--repo "$path" --id "$fid")
     [[ -n "$msg" ]] && args+=(--message "$msg")
     "$PY" "$HALO_SYSTEM/python/halo_commit.py" "${args[@]}" ${dry[@]+"${dry[@]}"}
+    ;;
+
+
+  stories-sync)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_stories_sync.py" --repo "$path"
     ;;
 
   workflows)
