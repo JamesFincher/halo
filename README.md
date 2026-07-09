@@ -1,129 +1,291 @@
 # Halo
 
-**Autonomous product development system for Grok Build.**
+**An AI-operated product factory.**  
+You are the operator. The human is the product owner. The filesystem is your memory. The loop does not wait for permission to think — only for authority to ship irreversibly.
 
-Human has an idea → points AI at Halo → Halo grills, plans, scaffolds, builds, deploys, iterates.  
-Minimal human after intake. Working demos every ship. Dead links never shared.
+Halo is not “an assistant that helps write code.” It is a **harness**: skills, deterministic scripts, state, and a true re-prompt loop that turn a coding agent (Grok Build first) into something that can take an idea through definition, environment readiness, scaffolding, iterative implementation, verification, and live demos — **across session death**, without the human sitting in the driver’s seat after the product is locked.
 
 ```
-idea → INTAKE → SPEC PACK → human iterate until happy
-     → READINESS (keys, CLIs, deploy, whole-lifecycle foresight)
-     → SCAFFOLD → MILESTONES → BUILD LOOP → live demo URLs
+HUMAN (sparse authority)          AGENT (dense operation)
+────────────────────────          ────────────────────────
+idea / taste / “happy?”     →     grill, propose, write specs
+lock / secrets / prod       →     readiness, scaffold, build forever
+peek demos when free        ←     probe-true URLs only
 ```
-
-**Every path documented:** [docs/WORKFLOWS.md](docs/WORKFLOWS.md) — no blind spots.  
-**CLI:** `./scripts/halo help`
-
-Steal DNA: [grok-halo](https://github.com/JamesFincher/grok-halo) + [bm-skills-grok-build](https://github.com/JamesFincher/bm-skills-grok-build).
 
 ---
 
-## For humans
+## Who this file is for
 
-### Install (Grok Build)
+**Primary reader: the agent.**  
+If you are an LLM loading this repo, treat the rest of this document as **operating doctrine**. Follow it before freestyling.
 
-```bash
-# From local path while developing:
-grok plugin install /Users/james/code/halo --trust
+**Secondary reader: the human.**  
+You install Halo, dump an idea, go deep on intake if you want, lock, drop credentials once, then walk away. You are not the build loop.
 
-# Or add as marketplace once published
-# grok plugin marketplace add JamesFincher/halo
-# grok plugin install halo --trust
+---
+
+## The full path (what actually happens)
+
+Expand every arrow. Missing a stage is a bug, not a shortcut.
+
+```
+┌─ HUMAN ──────────────────────────────────────────────────────────────┐
+│  1. Has a problem / product intent (one sentence is enough to start) │
+│  2. Opens an agent runtime that can load skills (Grok Build, etc.)   │
+│  3. Points the agent at Halo (plugin) + a TARGET product directory   │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ AGENT: ORIENT ──────────────────────────────────────────────────────┐
+│  Resolve WORLD A (this system) vs WORLD B (the product).             │
+│  Never scaffold into Halo itself unless dogfood is explicit.         │
+│  Read AGENTS.md → baton → state.phase. Cold start = files, not chat. │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ BOOTSTRAP ──────────────────────────────────────────────────────────┐
+│  Create product .halo/ control plane: state, baton, evidence dirs,   │
+│  product AGENTS.md / HALO.md. Machine memory exists before code.     │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ INTAKE ─────────────────────────────────────────────────────────────┐
+│  Structured discovery of the product: purpose, users, in/out scope,  │
+│  stack shape, data the app must remember, design direction,          │
+│  milestone grain, and every external dependency the lifecycle will   │
+│  need. Propose defaults; human may go deep or accept defaults.       │
+│  Autonomous mode: single-pass defaults, no questionnaire.            │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ SPEC PACK ──────────────────────────────────────────────────────────┐
+│  One giant delivery under .halo/spec/: PRD, architecture, design,    │
+│  data model, stack, stories, integrations, milestones, readiness.    │
+│  Human may revise until happy.                                       │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ LOCK ───────────────────────────────────────────────────────────────┐
+│  Human (or autonomous go) declares: this is the product of record.   │
+│  After lock, feature code is allowed; freestyle scope is not.        │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ READINESS ──────────────────────────────────────────────────────────┐
+│  Before any skeleton or feature work: inventory the *whole v1 life*. │
+│  Not “we’ll add monitoring later.” Every category of dependency the  │
+│  product will need to exist in the world — hosting, identity, data,  │
+│  observability, email, payments, model APIs, CLIs, auth to those     │
+│  CLIs — is named, env var shapes recorded, PATH/tools checked.       │
+│  Verdict: GO | DEGRADED | NO_GO. Secrets never committed or logged.  │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ SCAFFOLD + DEMO 0 ──────────────────────────────────────────────────┐
+│  Materialize a runnable skeleton for the chosen stack, milestone     │
+│  prompts, health surface. Start something real. Probe it live.       │
+│  Only then may a human-facing URL exist.                             │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ BUILD LOOP (true loop) ─────────────────────────────────────────────┐
+│  One story / milestone unit per cycle:                               │
+│    plan → RED tests → implement → GREEN → simplify → verify          │
+│    → deploy preview → LIVE PROBE → evidence → baton → re-prompt      │
+│  Stop hook re-injects a *freshly engineered* NEXT_PROMPT as the      │
+│  next user turn (same session). Headless /goal /loop as backups.     │
+│  Human does not approve each cycle. Human peeks demos when free.     │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                ▼
+┌─ COMPLETE / PROMOTE ─────────────────────────────────────────────────┐
+│  All planned units done. Preview was always Halo’s ceiling.          │
+│  Production promote remains a human authority gate.                  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Start a product
+**Session death is normal.** Chat ends; `.halo/state.json`, baton, specs, evidence, and `NEXT_PROMPT.md` do not. The next agent instance is a new mind with the same files — design for that.
 
-1. Open empty (or existing) project folder in Grok Build / Hermes.
-2. Tell the agent: **run halo-bootstrap** (or paste `AGENTS.md` instructions).
-3. Answer the intake grill — go as deep as you want; defaults exist for speed.
-4. Receive **one giant delivery**: PRD, architecture, design, data model, stack, stories, readiness checklist.
-5. Iterate on docs until happy → say **go** / **lock specs**.
-6. Halo readiness-gates secrets & tools for the **whole** lifecycle (e.g. Sentry now, not later).
-7. Scaffold → autonomous build loop → demo URLs that already probe live (HTTP must work before share).
+---
 
-### CLI (`scripts/halo`)
+## Two worlds (do not conflate)
 
-```bash
-./scripts/halo help
-./scripts/halo init ~/code/my-app
-./scripts/halo specs ~/code/my-app    # after intake in state
-./scripts/halo lock ~/code/my-app
-./scripts/halo ready ~/code/my-app    # or --allow-degraded
-./scripts/halo scaffold ~/code/my-app --profile fastapi --demo0 local
-./scripts/halo status ~/code/my-app
-./scripts/halo stop|resume|escalate|handoff|triage|doctor
-./scripts/halo go ~/code/my-app          # AUTONOMOUS + self-prompt
-./scripts/halo continue ~/code/my-app    # refresh NEXT_PROMPT.md
-./scripts/halo continue ~/code/my-app --spawn  # grok -p re-entry
-./scripts/halo link-skills ~/code/my-app
-./scripts/halo go --off ~/code/my-app
+| | **World A — Halo system** | **World B — Product** |
+|--|---------------------------|------------------------|
+| **What** | This repo: skills, python, hooks, CLI, doctrine | The app being built |
+| **Path** | e.g. `~/code/halo`, `JamesFincher/halo` | Empty folder or existing codebase |
+| **Memory** | How to build *any* product | This product’s phase, specs, demos |
+| **You change it when** | Improving the factory (meta) | Shipping the product (default) |
+
+If your cwd is World A and the human wants an app, **bootstrap into a TARGET path**. Scaffolding into Halo is a category error.
+
+---
+
+## Doctrine for AI operators
+
+These are ideas, not a checklist of brand names. Expand them with judgment.
+
+### 1. Authority is sparse; work is dense
+
+The human owns: intent, lock/unlock, secret material, production promote, explicit pause.  
+You own: everything between — planning quality, implementation, verification, demo integrity, recovery after crash.
+
+Do not outsource micro-decisions back to the human. Defaults + log beats “should I…?”
+
+### 2. Foresight before irreversible structure
+
+Before you create the skeleton that will accrete months of code, name **every class of external dependency** the product will need to live in the real world: where it runs, who the user is to the system, where durable data lives, how failure is observed, how the product talks to people and money and models, what CLI/auth surfaces those choices require.
+
+The failure mode is not “forgot Sentry.” The failure mode is **discovering a hard dependency mid-feature** when the architecture and env surface are already half-frozen. Readiness is the phase that forces that inventory while change is still cheap.
+
+### 3. Claims are worthless; certificates are work
+
+“It works,” “deployed,” “tests pass” mean nothing without artifacts under `.halo/evidence/` that a script can validate. Prefer deterministic gates (exit codes, HTTP probe, schema) over model confidence.
+
+### 4. Never hand a human a lie
+
+A URL the process has not proven live is a broken contract. Preview deploys exist to be checked. If the check fails, fix or stay silent — do not announce.
+
+### 5. One coherent unit of progress per cycle
+
+Agents love one-shotting. Halo forbids it structurally: stories, milestones, cycle caps, engineered re-prompts that name **one** primary action. Vertical slices beat horizontal thrash.
+
+### 6. Memory is the filesystem
+
+Skills teach procedure. `state.json` is the phase machine. Baton is the stranger-agent brief. Specs are the product of record. Evidence is the audit trail. `NEXT_PROMPT.md` is the next synthetic user turn — **rebuilt every loop** from live context (phase playbook, pending work, git, last-turn anti-patterns), not a recycled slogan.
+
+### 7. Determinism where cheating is tempting
+
+Phase transitions, readiness math, scaffold trees, probe, evidence validation live in Python/CLI. You (the model) call them; you do not reimplement them in prose. Safety that only lives in a skill will be negotiated away under pressure.
+
+### 8. The loop is mechanical, not motivational
+
+“Keep going” is not a vibe. The **Stop hook** arms when `.halo/loop.json` is active: on turn end it can block stop and re-inject the engineered prompt as the next user message (Ralph protocol). Fallbacks: headless `grok -p --prompt-file`, `/goal`, `/loop`. See [docs/TRUE-LOOP.md](docs/TRUE-LOOP.md).
+
+### 9. Autonomy is not recklessness
+
+`halo go` / `/halo-loop` means: no optional questions, drive the phase machine, self-prompt. It does **not** mean: skip tests, touch denylist, ship prod, invent secrets, or mark complete without evidence.
+
+### 10. Meta vs product
+
+Improving Halo (World A) is a different mission from shipping a product (World B). Do not silently rewrite the factory to force a green readiness while building an app.
+
+---
+
+## Control plane (product TARGET)
+
+After bootstrap, World B carries:
+
+```
+.halo/
+  state.json          # phase, status, autonomous, readiness_verdict, pointers
+  baton.md            # next-session handoff (plain language)
+  loop.json           # true-loop armed? iteration / max
+  NEXT_PROMPT.md      # next synthetic user message (engineered each time)
+  autonomous-log.md   # decisions taken without asking
+  spec/               # locked product definition
+  milestones/         # unit prompts + logs
+  evidence/           # certificates (probe, tests, deploy)
+  plans/              # per-cycle plans
+  prompt-history/     # prior injects (debug)
+AGENTS.md             # product-local rules + pointer to Halo protocol
+HALO.md               # loop config for this product
 ```
 
-**True loop:** Stop hook re-injects `.halo/NEXT_PROMPT.md` as the next user turn (`docs/TRUE-LOOP.md`).
+**Phase machine (legal edges enforced in code):**  
+`bootstrap → intake → spec_pack → spec_review → readiness → scaffold → build ⇄ → complete`  
+(+ pause / block / escalate overlays on `status`)
+
+---
+
+## Install & invoke
+
+### Humans
 
 ```bash
-grok plugin install /Users/james/code/halo --trust
-cd my-product && /halo-loop --max 50
-# or: ./scripts/halo loop . --max 50
+# Install Halo into Grok Build (trusted: includes Stop hooks)
+grok plugin install /path/to/halo --trust
+# or: git clone https://github.com/JamesFincher/halo.git && grok plugin install ./halo --trust
+
+# Product workspace
+mkdir my-app && cd my-app
+# In TUI: /halo-loop --max 50
+# or walk-away after intake:
+#   dump idea → agent grills → lock → fill .env from readiness → go
 ```
 
-Also: skill `halo-go`, headless `continue --spawn`, `/goal`, `/loop`.
+### Agents (first actions)
 
-### Skills (all workflows)
+1. Read this file + [AGENTS.md](AGENTS.md).  
+2. Resolve TARGET (World B).  
+3. If no `.halo/state.json` → bootstrap.  
+4. If `autonomous` / loop active → skill **halo-go**, no optional questions.  
+5. Prefer CLI/scripts under the Halo system path over reinventing gates:
 
-| Skill | When |
+```bash
+export HALO_SYSTEM=/path/to/halo   # World A
+$HALO_SYSTEM/scripts/halo help
+$HALO_SYSTEM/scripts/halo init|specs|lock|ready|scaffold|status
+$HALO_SYSTEM/scripts/halo go .              # autonomous + NEXT_PROMPT
+$HALO_SYSTEM/scripts/halo loop . --max 50   # arm Stop-hook true loop
+$HALO_SYSTEM/scripts/halo continue .        # re-engineer NEXT_PROMPT now
+$HALO_SYSTEM/scripts/halo doctor --strict .
+$HALO_SYSTEM/scripts/halo evidence .
+```
+
+### Skills (load by phase)
+
+| Skill | Role |
 |-------|------|
-| `halo-bootstrap` | Instantiate into product |
-| `halo-intake` | Grill |
-| `halo-spec-pack` | Giant docs |
-| `halo-readiness` | Foresight gate |
+| `halo-bootstrap` | Create control plane in TARGET |
+| `halo-intake` | Discover product (interactive or defaults) |
+| `halo-spec-pack` | Write `.halo/spec/*` |
+| `halo-readiness` | Lifecycle dependency / env / CLI gate |
 | `halo-scaffold` | Skeleton + milestones + Demo 0 |
-| `halo-build` / `halo-verify` / `halo-deploy` | Build cycle |
-| `halo-status` / `halo-triage` / `halo-doctor` | Observe |
-| `halo-pause` / `halo-escalate` / `halo-handoff` / `halo-revise` | Control |
+| `halo-build` / `halo-verify` / `halo-deploy` | Unit cycle |
+| `halo-go` | Autonomous doctrine + self-prompt |
+| `halo-status` / `triage` / `doctor` / `pause` / `escalate` / `handoff` / `revise` | Observe & control |
+
+Slash: `/halo-loop`, `/halo-loop-cancel`.
 
 ---
 
-## For AI agents (read this first)
+## True loop (why demos keep arriving)
 
-You are looking at the **Halo system repo**, not a product app.
+```
+work → Stop event → halo-stop-loop.sh
+                 → rebuild NEXT_PROMPT from live context
+                 → { decision: block, reason: <prompt> }
+                 → harness injects reason as next user turn
+                 → work …
+```
 
-1. Read `AGENTS.md` (authoritative protocol).
-2. If cwd is this repo and user wants a product → ask target project path, then bootstrap **into that path**.
-3. If cwd is already a product project with `.halo/` → continue from baton / phase in `.halo/state.json`.
-4. If cwd is empty product project → run **halo-bootstrap**, then **halo-intake**.
-
-Do not invent a half-PRD and start coding. Spec pack locks first.
-
----
-
-## Status (v0.3)
-
-| Slice | Status |
-|-------|--------|
-| Bootstrap + Intake + Spec pack | **done** |
-| Readiness foresight gate | **done** |
-| Full workflow map (no blind spots) | **done** — WORKFLOWS.md + CLI |
-| Scaffold nextjs/fastapi/existing + Demo 0 probe | **done** |
-| Build cycle skill | **contract** (agent-run) |
-| Multi-cycle walk-away runner | planned |
-
-Architecture: `docs/ARCHITECTURE.md` · **Deep:** `docs/ARCHITECTURE-DEEP.md` · Lifecycle: `docs/LIFECYCLE.md` · Workflows: `docs/WORKFLOWS.md`
+Each inject is **phase-playbook + pending work + git + last-turn anti-patterns + one primary action**. Details: [docs/TRUE-LOOP.md](docs/TRUE-LOOP.md), [docs/GROK-BUILD.md](docs/GROK-BUILD.md).
 
 ---
 
-## Principles
+## Deeper doctrine (read when stuck)
 
-1. **Foresight** — ask for Sentry/Clerk/Vercel/etc. before first scaffold, not mid-flight.
-2. **Evidence** — typed certs; no prose “it works.”
-3. **Live probe** — never hand human a deploy URL that 404s.
-4. **Async demos** — loop does not wait for human after lock; human peeks when free.
-5. **One story / one milestone unit per cycle** — no one-shot apps.
-6. **Self-instantiate** — skills + state files teach the next session what to do.
-7. **Python for glue** — scripts deterministic; model for judgment.
+| Doc | Contents |
+|-----|----------|
+| [AGENTS.md](AGENTS.md) | Binding agent protocol |
+| [docs/ARCHITECTURE-DEEP.md](docs/ARCHITECTURE-DEEP.md) | Two worlds, layers, self-modify levels, failure taxonomy |
+| [docs/WORKFLOWS.md](docs/WORKFLOWS.md) | Every human/agent path — if missing, it’s a bug |
+| [docs/TRUE-LOOP.md](docs/TRUE-LOOP.md) | Stop-hook re-inject design |
+| [docs/GROK-BUILD.md](docs/GROK-BUILD.md) | Mapping onto Grok Build primitives |
+| [docs/LIFECYCLE.md](docs/LIFECYCLE.md) | Human vs agent phase duties |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What is hard vs soft |
+
+**Conflict rule:** code (python/hooks) wins on mechanism; these docs win on intent until code is updated to match.
+
+---
+
+## Status
+
+Halo is under active construction. Bootstrap → intake → specs → readiness → scaffold → engineered re-prompt loop are real. Full multi-day build runner automation continues to harden. Treat missing automation as “agent executes the skill,” not “skip the phase.”
+
+---
+
+## Lineage
+
+Ideas borrowed and extended: [grok-halo](https://github.com/JamesFincher/grok-halo) (evidence, budget, verify culture), [bm-skills-grok-build](https://github.com/JamesFincher/bm-skills-grok-build) (intake / PRD / milestones), Ralph-style Stop re-inject, Grok Build skills/hooks/headless/goal.
+
+Halo’s bet: **the agent is the developer of record; the harness is the senior engineer of record.**
 
 ---
 
 ## License
 
-MIT (unless you change it).
+MIT (unless changed).
