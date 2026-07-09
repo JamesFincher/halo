@@ -218,11 +218,20 @@ def next_actions(repo: Path) -> list[str]:
         except Exception:  # noqa: BLE001
             fs = {}
         if fs.get("all_pass") and fs.get("total", 0) > 0:
-            actions.append(
-                "feature-list all_pass — either seed next milestone features "
-                "or set phase complete + emit <promise>HALO_COMPLETE</promise>"
-            )
-            actions.append("prefer: append M2 polish stories then continue; or complete")
+            if data.get("dogfood_mode") == "compounding" or data.get("dogfood"):
+                actions.append(
+                    "dogfood compounding: append next polish batch to feature-list "
+                    "(Dxxx) then implement ONE — do not idle on all_pass"
+                )
+                actions.append(
+                    "or run: halo dogfood-reinstantiate only if human requested reset"
+                )
+            else:
+                actions.append(
+                    "feature-list all_pass — either seed next milestone features "
+                    "or set phase complete + emit <promise>HALO_COMPLETE</promise>"
+                )
+                actions.append("prefer: append next stories then continue; or complete")
         else:
             nxt = fs.get("next") or {}
             fid = nxt.get("id") if isinstance(nxt, dict) else None

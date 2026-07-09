@@ -55,6 +55,9 @@ halo — autonomous product development system
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds dogfood .halo/)
   drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
+  cycle-smoke [path]       Factory dogfood smoke (compile+doctor+hygiene)
+  dogfood-reinstantiate [path]
+                           Reset Halo-on-Halo control plane + compounding backlog
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
   stories-sync [path]       Sync STORIES.md from feature-list passes
@@ -534,6 +537,17 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     if [[ ${#rest[@]} -eq 0 ]]; then rest=(status); fi
     "$PY" "$HALO_SYSTEM/python/halo_drive.py" --repo "$path" --halo-system "$HALO_SYSTEM" "${rest[@]}"
+    ;;
+
+  cycle-smoke)
+    path="$(repo_arg "${1:-.}")"
+    bash "$HALO_SYSTEM/scripts/halo-cycle-smoke.sh" "$path"
+    ;;
+
+  dogfood-reinstantiate)
+    path="$(repo_arg "${1:-.}")"
+    export HALO_SYSTEM
+    bash "$HALO_SYSTEM/scripts/halo-dogfood-reinstantiate.sh" "$path"
     ;;
 
   workflows)

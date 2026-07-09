@@ -12,6 +12,7 @@ venv/
 # local run state only. Other users clone a clean factory — never ship
 # dogfood specs, evidence, loop counters, batons, or prompt history.
 .halo/
+.halo-archive/
 
 # Generated product boot script at factory root during dogfood only.
 # Product TARGETS keep their own init.sh; factory protocol is in docs/skills.

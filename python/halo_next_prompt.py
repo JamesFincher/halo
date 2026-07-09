@@ -280,13 +280,15 @@ PHASE_PLAYBOOK: dict[str, dict[str, Any]] = {
         "do": [
             "Boot: read feature-list next failing item; run ./init.sh if present; check git log -5.",
             "Pick ONE feature with passes:false (machine truth). Prefer .halo/feature-list.json over markdown alone.",
+            "If state.dogfood_mode=compounding: this unit MUST upgrade factory code (or verify a harness path) then run scripts/halo-cycle-smoke.sh.",
             "Write .halo/plans/Sxxx-plan.md with AC and files.",
             "RED test → implement min code → GREEN full suite. Never delete tests (ratchet).",
-            "Write GREEN evidence: .halo/evidence/Sxxx-green.json (exit_code:0).",
-            "Arena: halo arena --id Sxxx (must APPROVED before pass).",
+            "Run: bash $HALO_SYSTEM/scripts/halo-cycle-smoke.sh .  (required for dogfood; strongly encouraged always).",
+            "Write GREEN evidence: .halo/evidence/Sxxx-green.json (exit_code:0) including smoke PASS note.",
+            "Arena: halo arena --id Sxxx when verify matters.",
             "Mark pass only via: halo features pass --id Sxxx --evidence .halo/evidence/Sxxx-green.json",
             "Append progress; baton; autonomous-log.",
-            "Safe commit: halo commit-unit --id Sxxx (never force-adds dogfood .halo/).",
+            "Safe commit factory files only (never force-add .halo/ or .halo-archive/).",
             "ONE unit only this turn (unless tiny residual fix).",
         ],
         "dont": [
