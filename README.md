@@ -15,17 +15,239 @@ peek demos when free        ←     probe-true URLs only
 
 ---
 
-## Who this file is for
+# START HERE — Instantiation playbook
 
-**Primary reader: the agent.**  
-If you are an LLM loading this repo, treat the rest of this document as **operating doctrine**. Follow it before freestyling.
+**If you are an AI and the human just pointed you at this repo:**  
+Your **first reply** must not be a vague summary. Run the playbook below, then tell the human **exactly what to do next** (paths, commands, what you need from them). That first message *is* the onboarding.
 
-**Secondary reader: the human.**  
-You install Halo, dump an idea, go deep on intake if you want, lock, drop credentials once, then walk away. You are not the build loop.
+**If you are a human:** open this repo in your coding agent and say *“start Halo”* / *“instantiate”* / *“read the playbook and set me up.”* Your agent should answer with the next steps from §1–§4.
 
 ---
 
-## The full path (what actually happens)
+## 0. What “point AI at Halo” means
+
+There are **two directories**. Confusing them breaks everything.
+
+| Directory | Call it | Purpose |
+|-----------|---------|---------|
+| **This repo** (where `README.md` + `.grok/skills/halo-*` live) | **World A — Halo system** | The factory instructions + tools |
+| **Where the app will live** (empty folder or existing app) | **World B — product TARGET** | The thing that gets built and demoed |
+
+- Opening **only** World A → agent learns *how* to run Halo, then must bootstrap a TARGET.  
+- Opening **only** World B with no prior bootstrap → agent has no Halo state yet; must install/link Halo first.  
+- Best path: install Halo once, open World B, agent bootstraps `.halo/` into B.
+
+---
+
+## 1. First agent actions (in order)
+
+Do these **before** writing product feature code.
+
+### Step A — Confirm you can see Halo
+
+```bash
+# You should be able to find these relative to the Halo system checkout:
+ls AGENTS.md README.md .grok/skills/halo-go/SKILL.md scripts/halo python/halo_state.py
+```
+
+If the human opened a **clone of this GitHub repo**, cwd *is* World A.  
+If they only installed the plugin and opened an empty app folder, set:
+
+```bash
+export HALO_SYSTEM=/absolute/path/to/halo   # World A checkout
+# or wherever they cloned it
+```
+
+### Step B — Get Halo onto the machine (tell the human if not done)
+
+**Human does this once** (or agent runs it with approval):
+
+```bash
+# Clone the factory (World A)
+git clone https://github.com/JamesFincher/halo.git ~/code/halo
+cd ~/code/halo
+
+# Grok Build: install as trusted plugin (skills + Stop-hook loop)
+grok plugin install ~/code/halo --trust
+
+# Optional: put CLI on PATH for this shell
+export HALO_SYSTEM=~/code/halo
+alias halo='$HALO_SYSTEM/scripts/halo'
+```
+
+Other runtimes: ensure project/plugin skills can load `~/code/halo/.grok/skills/*` and that `python3` can run `$HALO_SYSTEM/python/*.py`.
+
+### Step C — Choose / create the product TARGET (World B)
+
+**Ask once** (or use a default if human said “go” / autonomous):
+
+- Path to new or existing product, e.g. `~/code/my-app`
+- One-sentence product idea if they have it
+
+```bash
+mkdir -p ~/code/my-app   # if greenfield
+export TARGET=~/code/my-app
+export HALO_SYSTEM=~/code/halo
+```
+
+**Never** use `~/code/halo` as TARGET unless the human explicitly wants to dogfood Halo on itself.
+
+### Step D — Bootstrap the product (creates the control plane)
+
+```bash
+cd "$TARGET"
+"$HALO_SYSTEM/scripts/halo" init .
+"$HALO_SYSTEM/scripts/halo" link-skills .
+# Creates: .halo/state.json, baton.md, product AGENTS.md, HALO.md, skills symlinks
+```
+
+Agent skill equivalent: **`halo-bootstrap`** (same outcome).
+
+### Step E — Tell the human what happens next (template)
+
+After bootstrap, your message to the human should look like this (fill real paths):
+
+```markdown
+## Halo is ready to run on your product
+
+**Factory (World A):** `~/code/halo`  
+**Product (World B):** `~/code/my-app`  
+**State:** `.halo/state.json` phase=`intake`
+
+### What I need from you
+1. **Product idea** in your own words (one paragraph is enough).  
+   Or say **“go”** / **“use defaults”** and I’ll decide and proceed.
+2. Optional: how deep to grill (quick defaults vs full interview).
+3. Later (after lock): fill `.env` from the readiness checklist — never paste secrets in chat if you can avoid it.
+
+### What I’ll do next
+1. Intake → write full `.halo/spec/*` (PRD, architecture, stories, …).  
+2. You review specs and say **lock** (or I auto-lock if you said **go**).  
+3. Readiness gate (hosting, auth, data, observability, CLIs — whole v1 life).  
+4. Scaffold + Demo 0 (live probe before any URL).  
+5. Build loop; I’ll re-prompt myself via Halo’s loop when armed.
+
+### Commands you can run anytime
+- Status: `~/code/halo/scripts/halo status ~/code/my-app`
+- Walk away: in product dir, `/halo-loop` or `~/code/halo/scripts/halo loop . --max 50`
+- Stop loop: `/halo-loop-cancel` or `halo loop-cancel`
+- Pause: `halo stop .`
+
+### Files to open
+- Doctrine: `~/code/halo/README.md` (this file)
+- Protocol: `~/code/halo/AGENTS.md`
+- After specs exist: `~/code/my-app/.halo/spec/PRD.md`
+```
+
+Then **start intake** (skill `halo-intake` or autonomous single-pass if they said go).
+
+---
+
+## 2. Instantiation paths (pick one)
+
+### Path H1 — Human has Grok Build, wants a new product
+
+| # | Who | Action |
+|---|-----|--------|
+| 1 | Human | `git clone https://github.com/JamesFincher/halo.git ~/code/halo` |
+| 2 | Human | `grok plugin install ~/code/halo --trust` |
+| 3 | Human | `mkdir -p ~/code/my-app && cd ~/code/my-app && grok` (or open folder in TUI) |
+| 4 | Human | Say: *“Start Halo for this folder. Product idea: …”* or *“go”* |
+| 5 | Agent | `halo init` + `link-skills` + intake → … (playbook §1) |
+| 6 | Human | Review `.halo/spec/*` when offered → **lock** (unless go) |
+| 7 | Human | Fill `.env` from readiness / `.env.example` |
+| 8 | Human | Optional: `/halo-loop` and walk away; peek demos when notified |
+
+### Path H2 — Human already has a half-built app
+
+Same as H1, but TARGET is the existing app path. Agent must **detect stack** and use non-destructive scaffold (`existing` profile). Intake scopes *delta*, not rewrite-from-scratch, unless human asks for greenfield.
+
+### Path H3 — Human only opened the Halo git repo (no product yet)
+
+Agent **must not** start implementing a random app inside Halo.
+
+First message to human:
+
+```markdown
+You’re in the **Halo factory repo**, not a product repo.
+
+**Next for you:**
+1. Pick where the product should live, e.g. `mkdir -p ~/code/my-app`
+2. Reply with: path + product idea  
+   or: “use ~/code/my-app and go”
+
+**Next for me:** bootstrap that path, then intake.
+```
+
+### Path H4 — Autonomous (“go” / walk away)
+
+```bash
+export HALO_SYSTEM=~/code/halo
+export TARGET=~/code/my-app
+mkdir -p "$TARGET"
+"$HALO_SYSTEM/scripts/halo" init "$TARGET"
+"$HALO_SYSTEM/scripts/halo" link-skills "$TARGET"
+"$HALO_SYSTEM/scripts/halo" go "$TARGET" --max 10
+"$HALO_SYSTEM/scripts/halo" loop "$TARGET" --max 50   # arm Stop-hook true loop
+# Agent: skill halo-go — defaults only, no optional questions
+```
+
+---
+
+## 3. What “bootstrapped” means (definition of ready)
+
+TARGET is instantiated when **all** of these exist:
+
+| Artifact | Meaning |
+|----------|---------|
+| `.halo/state.json` | Phase machine lives |
+| `.halo/baton.md` | Next-session handoff |
+| `AGENTS.md` (product) | Local rules + Halo pointer |
+| `HALO.md` | Loop config stub |
+| Skills visible | Via plugin install **or** `halo link-skills` → `.grok/skills/halo-*` |
+
+Not yet required at bootstrap: specs, readiness GO, app code. Those come in later phases.
+
+---
+
+## 4. After bootstrap — phase cheat sheet for the agent
+
+| `state.phase` | Load skill / command | Human role |
+|---------------|----------------------|------------|
+| `intake` | `halo-intake` or go-defaults | Idea + depth preference |
+| `spec_pack` / `spec_review` | `halo-spec-pack` / `halo specs` | Read specs, lock or revise |
+| `readiness` | `halo ready` | Fill `.env` once for whole v1 life |
+| `scaffold` | `halo scaffold` | Peek Demo 0 if URL probed |
+| `build` | `halo-build` + loop | Peek demos; promote prod later |
+| `complete` | stop loop | Promote if desired |
+
+Always: read **baton** first on a cold session.
+
+---
+
+## 5. Verify instantiation
+
+```bash
+export HALO_SYSTEM=~/code/halo
+"$HALO_SYSTEM/scripts/halo" doctor --strict "$HALO_SYSTEM"   # factory healthy
+"$HALO_SYSTEM/scripts/halo" status "$TARGET"                 # product phase
+"$HALO_SYSTEM/scripts/halo" doctor "$TARGET"                 # product integrity
+ls "$TARGET/.halo/state.json" "$TARGET/.grok/skills/halo-go"
+```
+
+---
+
+## Who this file is for (after you’re running)
+
+**Primary reader: the agent.**  
+Doctrine and playbooks below are operating rules. Instantiation is § START HERE.
+
+**Secondary reader: the human.**  
+You clone, install plugin, name a TARGET and an idea, lock specs, supply secrets once, then walk away. You are not the build loop.
+
+---
+
+## The full path (what actually happens after instantiate)
 
 Expand every arrow. Missing a stage is a bug, not a shortcut.
 

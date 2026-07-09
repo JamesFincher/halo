@@ -5,6 +5,8 @@
 
 You are an AI coding agent. Halo is a **self-instantiating development system**. When the user points you at this package (or invokes a halo skill), follow this protocol.
 
+**First contact:** If this is a cold open of the Halo system repo (or the human says start / instantiate / set up Halo), your **first reply** must follow **README.md → “START HERE — Instantiation playbook”**: resolve World A vs TARGET, run bootstrap steps (or tell the human which commands to run), then give them a concrete **what I need from you / what I’ll do next** block. Do not answer with a vague overview only.
+
 ---
 
 ## Self-instantiate decision tree
