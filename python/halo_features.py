@@ -379,8 +379,11 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         return {"seeded": False, "reason": "already_seeded_today", "day": today}
 
     existing = {str(f.get("id")) for f in feats if f.get("id")}
+    existing_desc = {
+        str(f.get("description") or "").strip().lower() for f in feats if f.get("description")
+    }
     batch_n = int(seed_meta.get("batch") or 0) + 1
-    # Prefer curated templates; fall back to rotating defaults
+    # Prefer curated templates; skip descriptions already on the board
     templates = [
         "Harden cycle-smoke: fail if denylist paths appear in git status porcelain",
         "NEXT_PROMPT includes budget check line + spend day_cycles",
@@ -390,8 +393,21 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         "Cycle-smoke still green after latest factory commit",
         "doctor --strict + py_compile remain clean",
         "NEXT_PROMPT + baton name next pending feature id",
+        "halo drive status JSON includes loop iteration and feature next id",
+        "Stop hook writes .halo/logs/stop-last.json with spawn result",
+        "features summary includes compound seed meta when present",
+        "README Path H5 documents cycle-smoke after each unit",
     ]
-    picks = [templates[(batch_n + i) % len(templates)] for i in range(3)]
+    picks: list[str] = []
+    for i in range(len(templates) * 2):
+        desc = templates[(batch_n + i) % len(templates)]
+        if desc.strip().lower() in existing_desc or desc in picks:
+            continue
+        picks.append(desc)
+        if len(picks) >= 3:
+            break
+    if not picks:
+        return {"seeded": False, "reason": "no_new_templates", "day": today}
     new_feats: list[dict[str, Any]] = []
     for desc in picks:
         fid = _next_d_id(existing)
