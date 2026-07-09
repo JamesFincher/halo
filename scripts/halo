@@ -86,8 +86,11 @@ EOF
     if [[ ! -f "$path/.halo/state.json" ]]; then
       die "not a Halo product (missing .halo/state.json). Run: halo init"
     fi
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     "$PY" - <<PY
 import json
+import os
+import time
 from pathlib import Path
 p = Path("$path")
 s = json.loads((p/".halo/state.json").read_text())
@@ -95,15 +98,61 @@ r = {}
 rp = p/".halo/readiness.json"
 if rp.exists():
     r = json.loads(rp.read_text())
+loop = {}
+lp = p/".halo"/"loop.json"
+if lp.exists():
+    try:
+        loop = json.loads(lp.read_text())
+    except Exception:
+        pass
+# features
+feat_line = "features: (none)"
+try:
+    from halo_features import summary as feature_summary
+    fs = feature_summary(p, compound=False)
+    nxt = fs.get("next") or {}
+    nid = nxt.get("id") if isinstance(nxt, dict) else None
+    feat_line = (
+        f"features: {fs.get('passed')}/{fs.get('total')} remaining={fs.get('remaining')} "
+        f"all_pass={fs.get('all_pass')} next={nid or '-'}"
+    )
+except Exception as e:
+    feat_line = f"features: (error: {e})"
+# drive.lock
+drive_line = "drive:    unlocked"
+dl = p/".halo"/"drive.lock"
+if dl.exists():
+    try:
+        d = json.loads(dl.read_text())
+        pid = d.get("pid")
+        exp = d.get("expires_at") or 0
+        alive = False
+        if pid:
+            try:
+                os.kill(int(pid), 0)
+                alive = True
+            except OSError:
+                alive = False
+        stale = (not alive) or (float(exp) <= time.time())
+        drive_line = (
+            f"drive:    lock pid={pid} alive={alive} stale={stale} "
+            f"log={d.get('log') or '-'}"
+        )
+    except Exception as e:
+        drive_line = f"drive:    lock unreadable ({e})"
 print(f"product:  {s.get('product_name')}")
 print(f"status:   {s.get('status')}")
 print(f"phase:    {s.get('phase')}")
 print(f"auto:     {s.get('autonomous')}")
+print(f"loop:     active={loop.get('active')} iter={loop.get('iteration')}/{loop.get('max_iterations')}")
 print(f"spec:     {s.get('spec_status')}")
 print(f"ready:    {s.get('readiness_verdict') or r.get('verdict')}")
+print(f"dogfood:  {s.get('dogfood_mode') or s.get('dogfood')}")
 print(f"story:    {s.get('current_story')}")
 print(f"demo:     {s.get('last_demo_url')}")
 print(f"profile:  {s.get('scaffold_profile')}")
+print(feat_line)
+print(drive_line)
 baton = p/".halo/baton.md"
 if baton.exists():
     print("--- baton ---")
