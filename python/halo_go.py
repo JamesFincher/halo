@@ -313,6 +313,31 @@ def next_actions(repo: Path) -> list[str]:
     return actions
 
 
+def plan_score_fields(repo: Path) -> dict[str, Any]:
+    """D137: top-level scores/trajectories counts + match for go --plan JSON."""
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(repo, compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
+        return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
+        }
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_go")
     p.add_argument("--repo", default=".")
@@ -386,10 +411,31 @@ def main() -> None:
             )
         )
     elif args.plan:
+        # D137: always surface score/trajectory health on plan JSON
+        score_fields = plan_score_fields(repo)
         if not load(repo).get("autonomous"):
-            print(json.dumps({"autonomous": False, "plan": ["halo go --enable first"]}, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "autonomous": False,
+                        "plan": ["halo go --enable first"],
+                        **score_fields,
+                    },
+                    indent=2,
+                )
+            )
             sys.exit(0)
-        print(json.dumps({"autonomous": True, "plan": next_actions(repo)}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "autonomous": True,
+                    "plan": next_actions(repo),
+                    **score_fields,
+                },
+                indent=2,
+            )
+        )
+
 
 
 if __name__ == "__main__":
