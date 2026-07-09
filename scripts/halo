@@ -113,6 +113,9 @@ if lp.exists():
 feat_line = "features: (none)"
 latest_score_line = None
 latest_traj_line = None
+scores_count_line = None
+trajectories_count_line = None
+scores_match_line = None
 try:
     from halo_features import summary as feature_summary
     fs = feature_summary(p, compound=False)
@@ -122,6 +125,16 @@ try:
         f"features: {fs.get('passed')}/{fs.get('total')} remaining={fs.get('remaining')} "
         f"all_pass={fs.get('all_pass')} next={nid or '-'}"
     )
+    # D126: always print counts + match from features summary
+    sc = int(fs.get("scores_count") or 0)
+    tc = int(fs.get("trajectories_count") or 0)
+    scores_count_line = f"scores_count: {sc}"
+    trajectories_count_line = f"trajectories_count: {tc}"
+    if "scores_trajectories_match" in fs:
+        match = bool(fs.get("scores_trajectories_match"))
+    else:
+        match = sc == tc
+    scores_match_line = f"scores_trajectories_match: {'true' if match else 'false'}"
     # D122: surface latest score/trajectory ids from features summary when present
     lsid = fs.get("latest_score_id")
     ltid = fs.get("latest_trajectory_id")
@@ -165,6 +178,12 @@ print(f"story:    {s.get('current_story')}")
 print(f"demo:     {s.get('last_demo_url')}")
 print(f"profile:  {s.get('scaffold_profile')}")
 print(feat_line)
+if scores_count_line:
+    print(scores_count_line)
+if trajectories_count_line:
+    print(trajectories_count_line)
+if scores_match_line:
+    print(scores_match_line)
 if latest_score_line:
     print(latest_score_line)
 if latest_traj_line:
