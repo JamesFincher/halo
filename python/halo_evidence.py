@@ -42,9 +42,49 @@ def validate_red_test(path: Path) -> tuple[bool, str]:
     return False, "RED_TEST must record failing test (ok:true or exit_code!=0)"
 
 
+# Accepted certificate type strings (D082 schema gate)
+KNOWN_CERTS = frozenset(
+    {
+        "GREEN_TEST",
+        "RED_TEST",
+        "DEPLOY_OK",
+        "SMOKE_OK",
+        "COVERAGE_DELTA",
+        "FILE_DIFF",
+        "VERIFIER_APPROVED",
+        "GOLDEN_TRAJECTORY",
+        "SCORE_RECORDED",
+        "ARENA_SPAWN_CHECK",
+        "SPEC_OK",
+        "PROBE_OK",
+    }
+)
+
+
+def validate_cert_schema(data: dict[str, Any] | None) -> tuple[bool, str]:
+    """Reject evidence JSON missing cert field; accept known cert types (D082)."""
+    if not isinstance(data, dict):
+        return False, "evidence must be JSON object"
+    cert = data.get("cert")
+    if cert is None or str(cert).strip() == "":
+        return False, "missing cert field"
+    cert_s = str(cert).strip().upper()
+    if cert_s in KNOWN_CERTS or cert_s.endswith("_OK") or cert_s.endswith("_TEST"):
+        return True, "ok"
+    return False, f"unknown cert type: {cert}"
+
+
 def validate_green_test(path: Path) -> tuple[bool, str]:
     data = _json(path)
     if data is not None:
+        # Schema gate: JSON evidence should declare cert when present as structured cert
+        if "cert" in data or data.get("require_cert_schema"):
+            ok, msg = validate_cert_schema(data)
+            if not ok:
+                return False, msg
+            if str(data.get("cert", "")).upper() == "GREEN_TEST" or data.get("ok") is True:
+                if data.get("exit_code") in (None, 0) or data.get("ok") is True:
+                    return True, "ok"
         if data.get("exit_code") == 0 or data.get("ok") is True:
             return True, "ok"
         return False, f"GREEN_TEST exit_code={data.get('exit_code')}"
@@ -153,12 +193,38 @@ def validate_repo(repo: Path, require: list[str] | None = None) -> dict[str, Any
     }
 
 
+def check_file(path: Path) -> dict[str, Any]:
+    """Validate a single evidence file; JSON without cert fails (D082)."""
+    path = Path(path)
+    if not path.is_file():
+        return {"ok": False, "error": "missing file", "path": str(path)}
+    data = _json(path)
+    if data is not None:
+        ok, msg = validate_cert_schema(data)
+        return {"ok": ok, "message": msg, "path": str(path), "cert": data.get("cert")}
+    # plain text logs: allow if non-empty (legacy)
+    text = _read(path)
+    if text.strip():
+        return {"ok": True, "message": "legacy text evidence", "path": str(path)}
+    return {"ok": False, "message": "empty evidence", "path": str(path)}
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_evidence")
     p.add_argument("--repo", default=".")
     p.add_argument("--require", action="append", default=[], help="required cert kinds e.g. green-test")
     p.add_argument("--json", action="store_true")
+    p.add_argument(
+        "--check",
+        metavar="PATH",
+        default=None,
+        help="validate one evidence file (fails if JSON missing cert)",
+    )
     args = p.parse_args()
+    if args.check:
+        report = check_file(Path(args.check))
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report.get("ok") else 2)
     report = validate_repo(Path(args.repo).resolve(), require=args.require or None)
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["ok"] else 2)

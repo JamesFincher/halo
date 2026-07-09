@@ -73,6 +73,8 @@ def study(repo: Path) -> dict[str, Any]:
         factory_dirty = []
 
     next_f = feats.get("next") if isinstance(feats, dict) else None
+    seed_meta = _json(repo / ".halo" / "compound-seed.json")
+    roadmap_exhausted = seed_meta.get("last_reason") == "no_new_roadmap"
     plan = {
         "at": utc_now(),
         "phase": state.get("phase"),
@@ -88,6 +90,7 @@ def study(repo: Path) -> dict[str, Any]:
             "all_pass": feats.get("all_pass"),
             "next": next_f,
         },
+        "roadmap_exhausted": roadmap_exhausted,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),

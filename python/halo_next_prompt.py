@@ -392,6 +392,11 @@ def build_prompt(
     primary = primary_action(plan, str(phase))
     baton = _tail_lines(repo / ".halo" / "baton.md", 20)
     alog = _tail_lines(repo / ".halo" / "autonomous-log.md", 15)
+    # D083: explicit last-3 autonomous-log lines under Progress (truncated)
+    alog_raw = _tail_lines(repo / ".halo" / "autonomous-log.md", 3)
+    alog_last3 = "\n".join(
+        (ln[:200] + ("…" if len(ln) > 200 else "")) for ln in alog_raw.splitlines() if ln.strip()
+    ) or "(empty)"
     git = git_snapshot(repo)
     stories = pending_stories(repo)
     blockers = readiness_blockers(repo)
@@ -504,6 +509,9 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 
 ### Progress log (tail)
 {prog}
+
+### Autonomous log (last 3)
+{alog_last3}
 
 ### Readiness gaps
 {blockers_list}
