@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""D117: doctor warns when dogfood autonomous and scores_count != trajectories_count."""
+"""D162/D117: doctor warns when compounding self-instance scores_count != trajectories_count.
+
+Uses list_scores / list_trajectories culture (S*.json / GT-*.json only) so doctor
+and scores/trajectories CLI agree; junk files do not change diverge detection.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from halo_doctor import check_product  # noqa: E402
+from halo_scores import list_scores, list_trajectories  # noqa: E402
 
 
 def _write_repo(
@@ -25,6 +30,8 @@ def _write_repo(
     loop_active: bool = True,
     n_scores: int = 0,
     n_traj: int = 0,
+    junk_scores: bool = False,
+    junk_traj: bool = False,
 ) -> Path:
     halo = tmp / ".halo"
     (halo / "logs").mkdir(parents=True)
@@ -52,12 +59,26 @@ def _write_repo(
         (scores / f"{sid}.json").write_text(
             json.dumps({"id": sid}) + "\n", encoding="utf-8"
         )
+    if junk_scores:
+        (scores / "readme.json").write_text(
+            json.dumps({"note": "junk"}) + "\n", encoding="utf-8"
+        )
+        (scores / "score-1.json").write_text(
+            json.dumps({"id": "nope"}) + "\n", encoding="utf-8"
+        )
     traj = halo / "trajectories"
     traj.mkdir(parents=True)
     for i in range(1, n_traj + 1):
         tid = f"GT-{i:03d}"
         (traj / f"{tid}.json").write_text(
             json.dumps({"id": tid}) + "\n", encoding="utf-8"
+        )
+    if junk_traj:
+        (traj / "readme.json").write_text(
+            json.dumps({"note": "junk"}) + "\n", encoding="utf-8"
+        )
+        (traj / "trajectory-1.json").write_text(
+            json.dumps({"id": "nope"}) + "\n", encoding="utf-8"
         )
     return tmp
 
@@ -71,12 +92,57 @@ class TestDoctorScoresTrajectoriesDiverge(unittest.TestCase):
             self.assertIn("scores_trajectories_diverge", codes)
             warn = next(i for i in issues if i["code"] == "scores_trajectories_diverge")
             self.assertEqual(warn["level"], "warn")
+            # D162 culture attribution
+            self.assertIn("list_scores", warn["item"])
+            self.assertIn("list_trajectories", warn["item"])
+            self.assertIn("scores_count=2", warn["item"])
+            self.assertIn("trajectories_count=1", warn["item"])
 
     def test_warn_when_traj_ahead(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             repo = _write_repo(Path(td), n_scores=1, n_traj=3)
             issues = check_product(repo)
             self.assertIn(
+                "scores_trajectories_diverge", [i["code"] for i in issues]
+            )
+            warn = next(i for i in issues if i["code"] == "scores_trajectories_diverge")
+            self.assertIn("scores_count=1", warn["item"])
+            self.assertIn("trajectories_count=3", warn["item"])
+
+    def test_culture_junk_does_not_mask_diverge(self) -> None:
+        """D162: non-S* / non-GT-* junk must not equalize counts or suppress diverge."""
+        with tempfile.TemporaryDirectory() as td:
+            repo = _write_repo(
+                Path(td),
+                n_scores=1,
+                n_traj=2,
+                junk_scores=True,
+                junk_traj=True,
+            )
+            self.assertEqual(list_scores(repo).get("count"), 1)
+            self.assertEqual(list_trajectories(repo).get("count"), 2)
+            issues = check_product(repo)
+            codes = [i["code"] for i in issues]
+            self.assertIn("scores_trajectories_diverge", codes)
+            warn = next(i for i in issues if i["code"] == "scores_trajectories_diverge")
+            self.assertEqual(warn["level"], "warn")
+            self.assertIn("scores_count=1", warn["item"])
+            self.assertIn("trajectories_count=2", warn["item"])
+
+    def test_culture_junk_does_not_create_false_diverge(self) -> None:
+        """Equal culture counts stay equal even with junk files present."""
+        with tempfile.TemporaryDirectory() as td:
+            repo = _write_repo(
+                Path(td),
+                n_scores=2,
+                n_traj=2,
+                junk_scores=True,
+                junk_traj=True,
+            )
+            self.assertEqual(list_scores(repo).get("count"), 2)
+            self.assertEqual(list_trajectories(repo).get("count"), 2)
+            issues = check_product(repo)
+            self.assertNotIn(
                 "scores_trajectories_diverge", [i["code"] for i in issues]
             )
 
@@ -117,6 +183,8 @@ class TestDoctorScoresTrajectoriesDiverge(unittest.TestCase):
             self.assertTrue(d)
             self.assertEqual(d[0]["level"], "warn")
             self.assertNotEqual(d[0]["level"], "error")
+            errors = [i for i in issues if i.get("level") == "error"]
+            self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
