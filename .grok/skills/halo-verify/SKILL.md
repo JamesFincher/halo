@@ -21,11 +21,16 @@ Check before deploy:
 halo arena . --id Sxxx
 # writes .halo/evidence/verdict-Sxxx.json + .halo/arena/Sxxx.json
 # exit 0 only on APPROVED consensus
+
+# optional second-pass stub (records ARENA_SPAWN_CHECK; not a second LLM yet)
+halo arena . --id Sxxx --spawn-check
+# also writes .halo/evidence/arena-spawn-check-Sxxx.json
 ```
 
 - **A adversarial** — hunt missing GREEN, denylist, ratchet breaks, dishonest pass  
 - **B constructive** — approve only if evidence/AC present  
 - Split → `NEEDS_REVISION` (fail closed for ship)
+- **`--spawn-check`** — explicit second-pass hook cert (`mode: stub-second-pass`). True multi-agent subagent spawn remains host-dependent; the flag proves the optional second-pass path without faking isolation.
 
 Verdicts: `APPROVED` | `NEEDS_REVISION` | `REJECTED`  
 Unknown/malformed → never APPROVED.

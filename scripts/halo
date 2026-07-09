@@ -51,7 +51,9 @@ halo — autonomous product development system
   progress [path] …        add|tail progress log
   budget [path] …          check|show|record|halt (hard spend caps)
   ratchet [path]           test-ratchet scan (deleted tests)
-  arena [path] --id Sxxx   dual-lens independent verify (Arena)
+  arena [path] --id Sxxx [--spawn-check]
+                           dual-lens verify (A adversarial + B constructive);
+                           optional --spawn-check writes second-pass cert
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds dogfood .halo/)
   drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
@@ -534,16 +536,18 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
   arena)
     path="."
     fid=""
+    spawn_check=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --id) fid="$2"; shift 2 ;;
+        --spawn-check) spawn_check=(--spawn-check); shift ;;
         *) path="$(repo_arg "$1")"; shift ;;
       esac
     done
     path="$(repo_arg "$path")"
     [[ -n "$fid" ]] || die "arena requires --id Sxxx"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_arena.py" --repo "$path" verify --id "$fid"
+    "$PY" "$HALO_SYSTEM/python/halo_arena.py" --repo "$path" verify --id "$fid" "${spawn_check[@]}"
     ;;
 
   commit-unit)

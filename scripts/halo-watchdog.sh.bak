@@ -6,16 +6,16 @@
 set -euo pipefail
 HALO_SYS="${HALO_SYSTEM:-$(cd "$(dirname "$0")/.." && pwd)}"
 ROOT="$(cd "${1:-.}" && pwd)"
-SLEEP="${2:-15}"
+SLEEP="${2:-15}"  # default 15s — much faster than Grok /loop 60s min
 export HALO_SYSTEM="$HALO_SYS"
 export PYTHONPATH="${HALO_SYS}/python${PYTHONPATH:+:$PYTHONPATH}"
 PY="${PYTHON:-python3}"
 cd "$ROOT"
-mkdir -p "$ROOT/.halo/logs"
 
-echo "[watchdog] root=$ROOT sleep=${SLEEP}s pid=$$  stop: halo go --off; kill $$"
+echo "[watchdog] root=$ROOT sleep=${SLEEP}s  stop: halo go --off; kill $$"
 
 while true; do
+  # stop if loop disarmed
   if [[ -f "$ROOT/.halo/loop.json" ]]; then
     active="$($PY -c "import json;print(json.load(open('$ROOT/.halo/loop.json')).get('active'))" 2>/dev/null || echo False)"
   else
@@ -27,30 +27,10 @@ while true; do
     exit 0
   fi
 
+  # planner always refreshes NEXT_PROMPT + baton
   $PY "$HALO_SYS/python/halo_planner.py" --repo "$ROOT" --halo-system "$HALO_SYS" || true
 
-  $PY -c "
-import json, os
-from pathlib import Path
-from datetime import datetime, timezone
-root = Path(r'''$ROOT''')
-rec = None
-pl = root / '.halo' / 'plan-latest.json'
-if pl.exists():
-    try:
-        rec = json.loads(pl.read_text()).get('recommendation')
-    except Exception:
-        pass
-(root / '.halo' / 'logs' / 'watchdog-heartbeat.json').write_text(
-    json.dumps({
-        'at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'pid': $$,
-        'ok': True,
-        'recommendation': rec,
-    }, indent=2) + '\n'
-)
-" || true
-
+  # ensure headless builder running
   $PY "$HALO_SYS/python/halo_drive.py" --repo "$ROOT" --halo-system "$HALO_SYS" spawn 2>/dev/null || true
 
   sleep "$SLEEP"
