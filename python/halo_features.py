@@ -803,6 +803,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool (true when equal including both zero)",
         ],
     ),
+    # Batch 38+ — seed meta counts + evidence score culture (after D168 exhaust)
+    (
+        "compound-seed.json records scores_count trajectories_count scores_trajectories_match on seed write",
+        [
+            "compound-seed.json has scores_count and trajectories_count ints after successful seed",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "halo evidence check JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "evidence --check JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "halo evidence check JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "evidence --check JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
 ]
 
 
@@ -1020,6 +1042,7 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
 
     On successful seed write, compound-seed.json records latest_score_id and
     latest_trajectory_id (D155); null when scores/trajectories empty or missing.
+    Also records scores_count, trajectories_count, scores_trajectories_match (D169).
     """
     repo = Path(repo).resolve()
     state = _load_state(repo)
@@ -1103,6 +1126,9 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
     save_list(repo, data)
 
     # D155: persist latest score/trajectory ids at seed write (null when empty/missing)
+    # D169: also persist counts + scores_trajectories_match (true when equal, incl. both zero)
+    sc = _scores_count(repo)
+    tc = _trajectories_count(repo)
     seed_meta = {
         "last_seed_day": today,
         "batch": batch_n,
@@ -1111,6 +1137,9 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         "last_reason": "seeded",
         "latest_score_id": _latest_score_id(repo),
         "latest_trajectory_id": _latest_trajectory_id(repo),
+        "scores_count": sc,
+        "trajectories_count": tc,
+        "scores_trajectories_match": sc == tc,
     }
     seed_p.parent.mkdir(parents=True, exist_ok=True)
     seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")
