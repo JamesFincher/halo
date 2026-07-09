@@ -561,6 +561,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match printed as true/false",
         ],
     ),
+    # Batch 24+ — NEXT_PROMPT / progress / planner surface match culture
+    (
+        "NEXT_PROMPT includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "feature list section lists scores_count and trajectories_count ints",
+            "scores_trajectories_match printed as true/false",
+        ],
+    ),
+    (
+        "progress unit event auto-records scores_count and trajectories_count",
+        [
+            "progress.jsonl unit events include scores_count and trajectories_count ints",
+            "zeros when dirs empty/missing",
+        ],
+    ),
+    (
+        "planner recommendation warns when scores_trajectories_match is false under dogfood",
+        [
+            "recommendation mentions scores_trajectories_diverge when counts unequal",
+            "skip when match true or not dogfood",
+        ],
+    ),
 ]
 
 
