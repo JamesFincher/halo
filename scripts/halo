@@ -400,6 +400,9 @@ except Exception:
     pass
 phase = st.get("phase") or "?"
 nxt = "all_pass"
+sc = 0
+tc = 0
+match = True
 try:
     from halo_features import summary as feature_summary
     fs = feature_summary(p, compound=False)
@@ -410,10 +413,17 @@ try:
         nxt = "all_pass"
     else:
         nxt = "none"
+    # D132: surface scores/trajectories health in handoff Snapshot
+    sc = int(fs.get("scores_count") or 0)
+    tc = int(fs.get("trajectories_count") or 0)
+    match = bool(fs.get("scores_trajectories_match", sc == tc))
 except Exception as e:
     nxt = f"(summary error: {e})"
 print(f"phase={phase}")
 print(f"next_feature={nxt}")
+print(f"scores_count: {sc}")
+print(f"trajectories_count: {tc}")
+print(f"scores_trajectories_match: {'true' if match else 'false'}")
 PY
 )"
     {
