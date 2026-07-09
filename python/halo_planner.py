@@ -170,12 +170,23 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
     else:
         nid = "-"
         desc = "all_pass" if (plan.get("features") or {}).get("all_pass") else ""
+    # D120: surface scores/trajectories counts on baton (0 when missing/empty)
+    try:
+        sc = int(plan.get("scores_count") or 0)
+    except (TypeError, ValueError):
+        sc = 0
+    try:
+        tc = int(plan.get("trajectories_count") or 0)
+    except (TypeError, ValueError):
+        tc = 0
     baton.write_text(
         "# Baton — planner refresh\n"
         f"- at: {plan.get('at')}\n"
         f"- recommendation: {plan.get('recommendation')}\n"
         f"- next: **{nid}** — {desc[:120]}\n"
         f"- features: {plan.get('features')}\n"
+        f"- scores_count: {sc}\n"
+        f"- trajectories_count: {tc}\n"
         f"- dirty_factory: {plan.get('factory_dirty_count')}\n"
         "- Never force-add .halo/\n",
         encoding="utf-8",
