@@ -3,6 +3,8 @@
 
 D174: --json / check includes scores_count / trajectories_count /
 scores_trajectories_match (true when equal, including both zero).
+D175: --json / check includes latest_score_id and latest_trajectory_id
+(null when scores/trajectories dirs empty or missing).
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ def ratchet_score_fields(repo: Path) -> dict[str, Any]:
     """Score culture fields for ratchet --json output.
 
     D174: scores_count / trajectories_count / scores_trajectories_match.
+    D175: latest_score_id / latest_trajectory_id (null when empty/missing).
     """
     try:
         from halo_features import summary as feature_summary
@@ -43,12 +46,16 @@ def ratchet_score_fields(repo: Path) -> dict[str, Any]:
             "scores_count": sc,
             "trajectories_count": tc,
             "scores_trajectories_match": match,
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
             "scores_count": 0,
             "trajectories_count": 0,
             "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
         }
 
 

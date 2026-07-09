@@ -847,6 +847,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool (true when equal including both zero)",
         ],
     ),
+    # Batch 40+ — ratchet latest ids + progress tail score culture (after D174 exhaust)
+    (
+        "halo ratchet --json includes latest_score_id and latest_trajectory_id",
+        [
+            "ratchet --json has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo progress tail JSON envelope includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "progress tail stdout is object with events array plus scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "halo progress tail JSON envelope includes latest_score_id and latest_trajectory_id",
+        [
+            "progress tail stdout object has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
 ]
 
 
