@@ -209,8 +209,39 @@ def main() -> None:
             detail["note"] = args.note
         if getattr(args, "feature_id", None):
             detail["feature_id"] = args.feature_id
-        path = append(Path(args.repo), args.event, detail)
-        print(json.dumps({"ok": True, "path": str(path)}, indent=2))
+        repo = Path(args.repo)
+        path = append(repo, args.event, detail)
+        # D172: unit-event stdout JSON surfaces scores/trajectories counts + match
+        # D173: also latest_score_id / latest_trajectory_id (null when empty/missing)
+        out: dict[str, Any] = {"ok": True, "path": str(path)}
+        if str(args.event).lower() in _UNIT_EVENTS:
+            # Re-read last jsonl row so stdout mirrors what was persisted
+            last = tail(repo, 1)
+            row = last[-1] if last else {}
+            sc = int(row.get("scores_count") if "scores_count" in row else scores_count(repo))
+            tc = int(
+                row.get("trajectories_count")
+                if "trajectories_count" in row
+                else trajectories_count(repo)
+            )
+            if "scores_trajectories_match" in row:
+                match = bool(row.get("scores_trajectories_match"))
+            else:
+                match = sc == tc
+            out["scores_count"] = sc
+            out["trajectories_count"] = tc
+            out["scores_trajectories_match"] = match
+            out["latest_score_id"] = (
+                row.get("latest_score_id")
+                if "latest_score_id" in row
+                else latest_score_id(repo)
+            )
+            out["latest_trajectory_id"] = (
+                row.get("latest_trajectory_id")
+                if "latest_trajectory_id" in row
+                else latest_trajectory_id(repo)
+            )
+        print(json.dumps(out, indent=2))
 
     a.set_defaults(func=do_add)
 

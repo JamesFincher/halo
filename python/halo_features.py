@@ -825,6 +825,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "null when scores/trajectories dirs empty or missing",
         ],
     ),
+    # Batch 39+ — progress add + ratchet score culture (after D171 exhaust)
+    (
+        "halo progress add JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "progress add stdout JSON has scores_count and trajectories_count ints on unit events",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "halo progress add JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "progress add stdout JSON has latest_score_id and latest_trajectory_id on unit events",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo ratchet --json includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "ratchet --json has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
 ]
 
 
