@@ -298,10 +298,14 @@ def _stale_watchdog_issues(repo: Path, *, max_age: int = STALE_HEARTBEAT_SEC) ->
 
 
 def _compounding_score_culture_issues(repo: Path) -> list[dict[str, Any]]:
-    """Warn-only score/trajectory culture for compounding self-instance (D108/D114/D117/D160).
+    """Warn-only score/trajectory culture for compounding self-instance.
+
+    Covers D108/D114/D117/D160/D161. Never error-level (strict doctor stays ok).
 
     D160: scores_empty uses halo_scores.list_scores count (S*.json) so doctor and
-    scores CLI agree. trajectories via list_trajectories (GT-*.json). Never error.
+    scores CLI agree.
+    D161: trajectories_empty uses halo_scores.list_trajectories count (GT-*.json)
+    so doctor and trajectories CLI agree; non-GT junk does not suppress the warn.
     """
     issues: list[dict[str, Any]] = []
     try:
@@ -323,13 +327,16 @@ def _compounding_score_culture_issues(repo: Path) -> list[dict[str, Any]]:
                 "item": "compounding self-instance with empty .halo/scores — land a pass to write S###",
             }
         )
-    # D114: empty trajectories
+    # D161 / D114: empty trajectories (list_trajectories culture — GT-*.json only)
     if tn == 0:
         issues.append(
             {
                 "level": "warn",
                 "code": "trajectories_empty",
-                "item": "compounding self-instance with empty .halo/trajectories — land a trajectory GT-###",
+                "item": (
+                    "compounding self-instance with empty .halo/trajectories "
+                    "(list_trajectories count=0) — land a trajectory GT-###"
+                ),
             }
         )
     # D117: diverge (skip both-zero — empty warns already cover that)
@@ -345,6 +352,7 @@ def _compounding_score_culture_issues(repo: Path) -> list[dict[str, Any]]:
             }
         )
     return issues
+
 
 
 def check_product(repo: Path) -> list[dict[str, Any]]:
@@ -425,7 +433,7 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
         # D078: stale watchdog heartbeat while autonomous+active loop
         if loop_active:
             issues.extend(_stale_watchdog_issues(repo))
-        # D108/D114/D117/D160: compounding self-instance score culture (warn only)
+        # D108/D114/D117/D160/D161: compounding self-instance score culture (warn only)
         compounding = bool(
             state.get("dogfood") or state.get("dogfood_mode") == "compounding"
         )

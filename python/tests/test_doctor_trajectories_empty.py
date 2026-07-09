@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""D114: doctor warns when dogfood autonomous and trajectories directory empty."""
+"""D161: doctor warns when compounding self-instance and trajectories directory empty.
+
+Uses list_trajectories culture (GT-*.json only) so doctor and trajectories CLI agree.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from halo_doctor import check_product  # noqa: E402
+from halo_scores import list_trajectories  # noqa: E402
 
 
 def _write_repo(
@@ -25,6 +29,7 @@ def _write_repo(
     loop_active: bool = True,
     with_traj: bool = False,
     empty_traj_dir: bool = False,
+    junk_traj_files: bool = False,
 ) -> Path:
     halo = tmp / ".halo"
     (halo / "logs").mkdir(parents=True)
@@ -58,6 +63,14 @@ def _write_repo(
         )
     elif empty_traj_dir:
         (halo / "trajectories").mkdir(parents=True)
+    if junk_traj_files:
+        traj = halo / "trajectories"
+        traj.mkdir(parents=True)
+        # Non-GT names must not count (list_trajectories culture)
+        (traj / "readme.json").write_text(json.dumps({"note": "junk"}) + "\n", encoding="utf-8")
+        (traj / "trajectory-1.json").write_text(
+            json.dumps({"id": "nope"}) + "\n", encoding="utf-8"
+        )
     return tmp
 
 
@@ -70,6 +83,7 @@ class TestDoctorTrajectoriesEmpty(unittest.TestCase):
             self.assertIn("trajectories_empty", codes)
             warn = next(i for i in issues if i["code"] == "trajectories_empty")
             self.assertEqual(warn["level"], "warn")
+            self.assertIn("list_trajectories", warn["item"])
 
     def test_warn_when_empty_dir(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -77,9 +91,18 @@ class TestDoctorTrajectoriesEmpty(unittest.TestCase):
             issues = check_product(repo)
             self.assertIn("trajectories_empty", [i["code"] for i in issues])
 
+    def test_warn_when_only_non_gt_junk(self) -> None:
+        """D161 culture: non-GT-*.json files do not suppress trajectories_empty."""
+        with tempfile.TemporaryDirectory() as td:
+            repo = _write_repo(Path(td), junk_traj_files=True)
+            self.assertEqual(list_trajectories(repo).get("count"), 0)
+            issues = check_product(repo)
+            self.assertIn("trajectories_empty", [i["code"] for i in issues])
+
     def test_no_warn_when_has_gt(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             repo = _write_repo(Path(td), with_traj=True)
+            self.assertGreaterEqual(int(list_trajectories(repo).get("count") or 0), 1)
             issues = check_product(repo)
             self.assertNotIn("trajectories_empty", [i["code"] for i in issues])
 
@@ -98,6 +121,9 @@ class TestDoctorTrajectoriesEmpty(unittest.TestCase):
             self.assertTrue(te)
             self.assertEqual(te[0]["level"], "warn")
             self.assertNotEqual(te[0]["level"], "error")
+            # Strict doctor: ok when no error-level issues
+            errors = [i for i in issues if i.get("level") == "error"]
+            self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
