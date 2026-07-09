@@ -190,6 +190,12 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
     latest_traj = str(raw_lt).strip() if raw_lt else "-"
     if latest_traj in ("", "None", "null"):
         latest_traj = "-"
+    # D125: scores_trajectories_match true/false (prefer plan field; else sc == tc)
+    if "scores_trajectories_match" in plan:
+        match = bool(plan.get("scores_trajectories_match"))
+    else:
+        match = sc == tc
+    match_s = "true" if match else "false"
     baton.write_text(
         "# Baton — planner refresh\n"
         f"- at: {plan.get('at')}\n"
@@ -200,6 +206,7 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
         f"- trajectories_count: {tc}\n"
         f"- latest_score_id: {latest_score}\n"
         f"- latest_trajectory_id: {latest_traj}\n"
+        f"- scores_trajectories_match: {match_s}\n"
         f"- dirty_factory: {plan.get('factory_dirty_count')}\n"
         "- Never force-add .halo/\n",
         encoding="utf-8",
