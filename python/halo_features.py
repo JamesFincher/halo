@@ -670,6 +670,24 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
     return {"seeded": True, "batch": batch_n, "ids": seed_meta["seeded_ids"], "day": today}
 
 
+def _summary_next(feat: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Slim next feature for operators/agents (D098: always include requires_code)."""
+    if not feat:
+        return None
+    out: dict[str, Any] = {
+        "id": feat.get("id"),
+        "description": feat.get("description"),
+        "category": feat.get("category"),
+        "passes": bool(feat.get("passes")),
+        "requires_code": bool(feat.get("requires_code")),
+        "milestone": feat.get("milestone"),
+        "steps": list(feat.get("steps") or []),
+    }
+    if feat.get("evidence"):
+        out["evidence"] = feat.get("evidence")
+    return out
+
+
 def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     """Pass/fail counts. Optionally auto-seed compounding batch when all_pass (D030)."""
     if compound:
@@ -682,12 +700,13 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     total = len(feats)
     passed = sum(1 for f in feats if f.get("passes"))
     pending = [f for f in feats if not f.get("passes")]
+    nxt = _summary_next(pending[0]) if pending else None
     return {
         "total": total,
         "passed": passed,
         "remaining": total - passed,
         "all_pass": total > 0 and passed == total,
-        "next": pending[0] if pending else None,
+        "next": nxt,
         "features": feats,
     }
 

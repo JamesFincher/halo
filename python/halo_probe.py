@@ -49,18 +49,32 @@ def probe(url: str, timeout: float, expect_substring: str | None) -> dict[str, A
 
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_probe")
-    p.add_argument("--url", required=True)
+    p.add_argument(
+        "--url",
+        required=True,
+        help="URL to probe (empty/whitespace rejected with non-zero exit)",
+    )
     p.add_argument("--timeout", type=float, default=15.0)
     p.add_argument("--expect", default=None, help="optional body substring")
     p.add_argument("--json", action="store_true", help="machine output")
     args = p.parse_args()
 
-    result = probe(args.url, args.timeout, args.expect)
+    # D099: empty/whitespace URL is a hard fail (do not attempt network)
+    url = (args.url or "").strip()
+    if not url:
+        err = {"ok": False, "url": args.url, "error": "empty --url"}
+        if args.json:
+            print(json.dumps(err, indent=2))
+        else:
+            print("FAIL empty --url", file=sys.stderr)
+        raise SystemExit(2)
+
+    result = probe(url, args.timeout, args.expect)
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         status = "PASS" if result["ok"] else "FAIL"
-        print(f"{status} {result.get('http_code')} {args.url}")
+        print(f"{status} {result.get('http_code')} {url}")
         if not result["ok"] and result.get("error"):
             print(result["error"], file=sys.stderr)
 
