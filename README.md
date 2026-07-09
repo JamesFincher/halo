@@ -199,9 +199,15 @@ Allowed **only when explicit**. TARGET = this factory repo.
 ```bash
 export HALO_SYSTEM=~/code/halo
 cd "$HALO_SYSTEM"
-./scripts/halo init .          # creates local .halo/ (gitignored)
-./scripts/halo go . --max 30   # arms true loop on Halo itself
-# Work feature-list items; polish the factory
+# Fresh compounding control plane (archives prior .halo/ locally):
+./scripts/halo dogfood-reinstantiate .
+# or: ./scripts/halo-dogfood-reinstantiate.sh .
+
+./scripts/halo go . --max 100   # arms headless drive + loop
+./scripts/halo cycle-smoke .    # compile + doctor + hygiene
+
+# Each unit: implement → cycle-smoke → evidence pass → commit factory only
+# Reset again anytime without touching git history of factory code
 ```
 
 **Clone hygiene (non-negotiable):**  
