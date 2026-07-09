@@ -405,6 +405,31 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "includes phase and next feature id or all_pass",
         ],
     ),
+    (
+        "Dogfood approved cycle writes .halo/scores/SNNN.json six-dimension stub",
+        ['score file has tool_selection and warm_start_directive fields', 'id matches cycle or sequential S###'],
+    ),
+    (
+        "Dogfood approved cycle records golden trajectory GT stub",
+        ['writes .halo/trajectories/GT-NNN.json with step sequence', 'includes git head and feature id'],
+    ),
+    (
+        "loop.json last_head refreshed on successful features pass",
+        ['set_pass updates loop.last_head to current HEAD when loop active', 'missing loop.json is non-fatal'],
+    ),
+    (
+        "halo plan surfaces scores_missing warn when scores dir empty under dogfood",
+        ['plan-latest.json has scores_count int', 'recommendation mentions scores when count 0 and dogfood'],
+    ),
+    (
+        "progress unit event includes feature_id when provided",
+        ['progress add --event unit --json with feature_id persists field', 'optional field'],
+    ),
+    (
+        "doctor warns when dogfood autonomous and scores directory empty",
+        ['level warn code scores_empty', 'not an error so strict still passes'],
+    )
+
 ]
 
 
@@ -534,6 +559,14 @@ def set_pass(
                 f.pop("evidence", None)
                 f.pop("factory_diff", None)
             found = True
+            # D103–D105: score stub + golden trajectory + refresh loop.last_head
+            if passes:
+                try:
+                    from halo_scores import on_feature_pass
+
+                    f["dogfood_meta"] = on_feature_pass(repo, feature_id, note=note)
+                except Exception as e:  # noqa: BLE001 — never block pass on meta
+                    f["dogfood_meta"] = {"error": str(e)}
             break
     if not found:
         raise SystemExit(f"unknown feature id: {feature_id}")
