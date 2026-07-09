@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Halo CLI — single entry for humans & agents. No blind spots.
+# Halo CLI — minimal public lifecycle surface.
 set -euo pipefail
 
 HALO_SYSTEM="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,53 +19,24 @@ shift || true
 case "$cmd" in
   help|-h|--help)
     cat <<'EOF'
-halo — autonomous product development system
+halo — autonomous product lifecycle
 
-  init [path]              Bootstrap .halo into product path
-  status [path]            Phase, readiness, story, last demo
-  baton [path]             Print handoff baton
-  specs [path]             Write .halo/spec/* from intake
-  lock [path]              Lock specs → readiness
-  unlock [path]            Unlock specs → spec_review
-  ready [path] [--allow-degraded]
-                           Lifecycle readiness gate
-  scaffold [path] [--profile auto|nextjs-saas|fastapi|existing]
-                           [--demo0 local|skip|vercel]
-  milestones [path]        Regenerate milestone prompts
-  probe --url URL          Live HTTP probe (never share fail)
-  build [path]             Print next build instructions (cycle)
-  stop [path]              PAUSE loop
-  resume [path]            ACTIVE again
-  escalate [path] [reason] Write escalation packet
-  triage [path]            Health summary
-  handoff [path]           Context pack for human/other agent
-  doctor [path] [--strict] Validate system + product (strict=CI fail)
-  evidence [path]          Validate evidence certs (not just files)
-  go [path] [--off] [--max N] [--spawn]
-                           AUTONOMOUS mode — build without asking (set HALO_ACP=1 for ACP)
-  continue [path] [--spawn] Write NEXT_PROMPT; optional grok --prompt-file re-entry
-  link-skills [path]       Symlink Halo skills into product .grok/skills
-  loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
-  loop-cancel [path]       Disarm true loop
-  features [path] …        sync|summary|pass|fail|seed [--force] [--id …]
-  progress [path] …        add|tail progress log
-  budget [path] …          check|show|record|halt (hard spend caps)
-  ratchet [path]           test-ratchet scan (deleted tests)
-  arena [path] --id Sxxx [--spawn-check]
-                           dual-lens verify (A adversarial + B constructive);
-                           optional --spawn-check writes second-pass cert
-  commit-unit [path] --id Sxxx [--message …] [--dry-run]
-                           safe auto-commit (never force-adds .halo/)
-  drive [path] …           spawn|status|should-drive (Grok continuous drive)
-  plan [path]              Continuous drive: refresh NEXT_PROMPT via planner
-  watchdog [path] [secs]   Continuous drive: planner+spawn loop (default 15s; HALO_ACP=1 for ACP supervisor)
-  cycle-smoke [path]       Continuous drive: factory smoke (compile+doctor+hygiene)
-  reinstantiate [path]     Continuous drive: reset control plane + compounding backlog
-  lock-runner [path]       acquire single-runner lock
-  unlock-runner [path]     release runner lock
-  stories-sync [path]       Sync STORIES.md from feature-list passes
-  workflows                Show workflow map path
-  help                     This help
+  init [path]          Bootstrap a new product
+  status [path]        Show phase, readiness, story, demo
+  specs [path]         Write .halo/spec/* from intake
+  lock [path]          Lock specs → readiness
+  unlock [path]        Unlock specs for revision
+  ready [path]         Run readiness gate
+  scaffold [path]      Scaffold app + milestones + Demo 0
+  build [path]         Show build-cycle instructions
+  go [path]            Start autonomous mode
+  stop [path]          Pause autonomous / set PAUSED
+  resume [path]        Resume active
+  continue [path]      Refresh NEXT_PROMPT
+  handoff [path]       Write context pack for another agent
+  doctor [path]        Validate system + product
+  help                 Show this help
+
 EOF
     ;;
 
@@ -74,141 +45,61 @@ EOF
     mkdir -p "$path"
     "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path" --force 2>/dev/null \
       || "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path"
-    # copy product templates (AGENTS + dual pointer CLAUDE.md)
     for f in AGENTS.md HALO.md CLAUDE.md; do
       if [[ ! -f "$path/$f" && -f "$HALO_SYSTEM/templates/project/$f" ]]; then
         cp "$HALO_SYSTEM/templates/project/$f" "$path/$f"
       fi
     done
-    echo "init ok → $path  next: intake (skill halo-intake) or dump idea to agent"
-    echo "boot: $path/init.sh (fill after scaffold) · done-track: .halo/feature-list.json"
+    echo "init ok → $path"
     ;;
 
   status)
     path="$(repo_arg "${1:-.}")"
     if [[ ! -f "$path/.halo/state.json" ]]; then
-      die "not a Halo product (missing .halo/state.json). Run: halo init"
+      die "not a Halo product — run halo init"
     fi
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     "$PY" - <<PY
 import json
 import os
-import time
+from datetime import datetime, timezone
 from pathlib import Path
-p = Path("$path")
-s = json.loads((p/".halo/state.json").read_text())
-r = {}
-rp = p/".halo/readiness.json"
-if rp.exists():
-    r = json.loads(rp.read_text())
-loop = {}
-lp = p/".halo"/"loop.json"
-if lp.exists():
-    try:
-        loop = json.loads(lp.read_text())
-    except Exception:
-        pass
-# features
-feat_line = "features: (none)"
-latest_score_line = None
-latest_traj_line = None
-scores_count_line = None
-trajectories_count_line = None
-scores_match_line = None
-try:
-    from halo_features import summary as feature_summary
-    fs = feature_summary(p, compound=False)
-    nxt = fs.get("next") or {}
-    nid = nxt.get("id") if isinstance(nxt, dict) else None
-    feat_line = (
-        f"features: {fs.get('passed')}/{fs.get('total')} remaining={fs.get('remaining')} "
-        f"all_pass={fs.get('all_pass')} next={nid or '-'}"
-    )
-    # D126: always print counts + match from features summary
-    sc = int(fs.get("scores_count") or 0)
-    tc = int(fs.get("trajectories_count") or 0)
-    scores_count_line = f"scores_count: {sc}"
-    trajectories_count_line = f"trajectories_count: {tc}"
-    if "scores_trajectories_match" in fs:
-        match = bool(fs.get("scores_trajectories_match"))
-    else:
-        match = sc == tc
-    scores_match_line = f"scores_trajectories_match: {'true' if match else 'false'}"
-    # D122: surface latest score/trajectory ids from features summary when present
-    lsid = fs.get("latest_score_id")
-    ltid = fs.get("latest_trajectory_id")
-    if lsid:
-        latest_score_line = f"latest_score_id: {lsid}"
-    if ltid:
-        latest_traj_line = f"latest_trajectory_id: {ltid}"
-except Exception as e:
-    feat_line = f"features: (error: {e})"
-# drive.lock
-drive_line = "drive:    unlocked"
-dl = p/".halo"/"drive.lock"
-if dl.exists():
-    try:
-        d = json.loads(dl.read_text())
-        pid = d.get("pid")
-        exp = d.get("expires_at") or 0
-        alive = False
-        if pid:
-            try:
-                os.kill(int(pid), 0)
-                alive = True
-            except OSError:
-                alive = False
-        stale = (not alive) or (float(exp) <= time.time())
-        drive_line = (
-            f"drive:    lock pid={pid} alive={alive} stale={stale} "
-            f"log={d.get('log') or '-'}"
-        )
-    except Exception as e:
-        drive_line = f"drive:    lock unreadable ({e})"
-print(f"product:  {s.get('product_name')}")
-print(f"status:   {s.get('status')}")
-print(f"phase:    {s.get('phase')}")
-print(f"auto:     {s.get('autonomous')}")
-print(f"loop:     active={loop.get('active')} iter={loop.get('iteration')}/{loop.get('max_iterations')}")
-print(f"spec:     {s.get('spec_status')}")
-print(f"ready:    {s.get('readiness_verdict') or r.get('verdict')}")
-print(f"mode:     {s.get('dogfood_mode') or s.get('dogfood')}")
-print(f"story:    {s.get('current_story')}")
-print(f"demo:     {s.get('last_demo_url')}")
-print(f"profile:  {s.get('scaffold_profile')}")
-print(feat_line)
-if scores_count_line:
-    print(scores_count_line)
-if trajectories_count_line:
-    print(trajectories_count_line)
-if scores_match_line:
-    print(scores_match_line)
-if latest_score_line:
-    print(latest_score_line)
-if latest_traj_line:
-    print(latest_traj_line)
-print(drive_line)
-# D085: budget verdict + watchdog heartbeat age
-budget_line = "budget:   (n/a)"
+from halo_features import summary as feature_summary
+p = Path('$path')
+with open(p / '.halo' / 'state.json', encoding='utf-8') as f:
+    s = json.load(f)
+print(f"product: {s.get('product_name')}")
+print(f"status:  {s.get('status')}")
+print(f"phase:   {s.get('phase')}")
+print(f"spec:    {s.get('spec_status')}")
+print(f"ready:   {s.get('readiness_verdict')}")
+print(f"story:   {s.get('current_story')}")
+print(f"demo:    {s.get('last_demo_url')}")
+fs = feature_summary(p, compound=False)
+print(f"features: {fs.get('passed')}/{fs.get('total')} remaining={fs.get('remaining')} all_pass={fs.get('all_pass')}")
+nxt = fs.get('next') or {}
+nid = nxt.get('id') if isinstance(nxt, dict) else None
+print(f"next: {nid or '-'}")
+print(f"scores_count: {fs.get('scores_count')}")
+print(f"trajectories_count: {fs.get('trajectories_count')}")
+print(f"scores_trajectories_match: {'true' if fs.get('scores_trajectories_match') else 'false'}")
+print(f"latest_score_id: {fs.get('latest_score_id') or '-'}")
+print(f"latest_trajectory_id: {fs.get('latest_trajectory_id') or '-'}")
+# budget / watchdog health
 try:
     from halo_budget import check as budget_check
     bv = budget_check(p)
-    v = str(bv.get("verdict") or "?")
-    ui = "PAUSE" if v == "HALT" else v
-    budget_line = f"budget:   {ui} reason={bv.get('reason')}"
+    v = str(bv.get('verdict') or '?')
+    print(f"budget:   {v} reason={bv.get('reason')}")
 except Exception as e:
-    budget_line = f"budget:   (error: {e})"
-print(budget_line)
-wd_line = "watchdog: (none)"
+    print(f"budget:   (error: {e})")
 try:
     import time as _time
-    from datetime import datetime, timezone
-    wpid_p = p/".halo"/"logs"/"watchdog.pid"
-    whb_p = p/".halo"/"logs"/"watchdog-heartbeat.json"
     wpid = None
     walive = False
+    wpid_p = p / '.halo' / 'logs' / 'watchdog.pid'
+    whb_p = p / '.halo' / 'logs' / 'watchdog-heartbeat.json'
     if wpid_p.exists():
-        wpid = int(wpid_p.read_text().strip() or "0") or None
+        wpid = int(wpid_p.read_text().strip() or '0') or None
         if wpid:
             try:
                 os.kill(wpid, 0)
@@ -218,27 +109,21 @@ try:
     age = None
     if whb_p.exists():
         hb = json.loads(whb_p.read_text())
-        at = hb.get("at")
+        at = hb.get('at')
         if at:
-            ts = str(at).replace("Z", "+00:00")
+            ts = str(at).replace('Z', '+00:00')
             then = datetime.fromisoformat(ts)
             if then.tzinfo is None:
                 then = then.replace(tzinfo=timezone.utc)
             age = max(0, int((datetime.now(timezone.utc) - then).total_seconds()))
-    wd_line = f"watchdog: pid={wpid} alive={walive} heartbeat_age={age}"
+    print(f"watchdog: pid={wpid} alive={walive} heartbeat_age={age}")
 except Exception as e:
-    wd_line = f"watchdog: (error: {e})"
-print(wd_line)
-baton = p/".halo/baton.md"
-if baton.exists():
-    print("--- baton ---")
-    print(baton.read_text()[:800])
+    print(f"watchdog: (error: {e})")
 PY
-    ;;
-
-  baton)
-    path="$(repo_arg "${1:-.}")"
-    cat "$path/.halo/baton.md" 2>/dev/null || die "no baton"
+    if [[ -f "$path/.halo/baton.md" ]]; then
+      echo "--- baton ---"
+      cat "$path/.halo/baton.md"
+    fi
     ;;
 
   specs)
@@ -255,484 +140,126 @@ PY
     path="$(repo_arg "${1:-.}")"
     "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --phase spec_review --spec-status drafting --status ACTIVE --force 2>/dev/null \
       || "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --phase spec_review --spec-status drafting --status ACTIVE
-    echo "# Baton
-- Phase: spec_review
-- Next: revise .halo/spec then halo lock
-- Specs unlocked for revision" > "$path/.halo/baton.md"
     echo "unlocked → spec_review"
     ;;
 
   ready)
-    path="."
-    allow=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --allow-degraded) allow+=(--allow-degraded); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    "$PY" "$HALO_SYSTEM/python/halo_readiness.py" --repo "$path" --write "${allow[@]+"${allow[@]}"}"
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_readiness.py" --repo "$path" --write
     ;;
 
   scaffold)
-    path="."
-    profile=auto
-    demo0=local
-    extra=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --profile) profile="$2"; shift 2 ;;
-        --demo0) demo0="$2"; shift 2 ;;
-        --skip-ready-check) extra+=(--skip-ready-check); shift ;;
-        --force) extra+=(--force); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    "$PY" "$HALO_SYSTEM/python/halo_scaffold.py" \
-      --repo "$path" \
-      --halo-system "$HALO_SYSTEM" \
-      --profile "$profile" \
-      --demo0 "$demo0" \
-      "${extra[@]+"${extra[@]}"}"
-    ;;
-
-  milestones)
     path="$(repo_arg "${1:-.}")"
-    "$PY" "$HALO_SYSTEM/python/halo_milestones.py" --repo "$path" --halo-system "$HALO_SYSTEM"
-    ;;
-
-  probe)
-    url=""
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --url) url="$2"; shift 2 ;;
-        *) url="$1"; shift ;;
-      esac
-    done
-    [[ -n "$url" ]] || die "probe --url URL"
-    "$PY" "$HALO_SYSTEM/python/halo_probe.py" --url "$url" --json
+    "$PY" "$HALO_SYSTEM/python/halo_scaffold.py" \
+      --repo "$path" --halo-system "$HALO_SYSTEM" --profile auto --demo0 local
     ;;
 
   build)
     path="$(repo_arg "${1:-.}")"
-    cat <<EOF
-Halo build cycle (agent):
-1. Read $path/.halo/baton.md + state.json
-2. Load skill halo-build
-3. Pick next pending story from .halo/spec/STORIES.md or milestones index
-4. RED → impl → GREEN → simplify → verify → deploy → probe → only then share URL
-5. Write evidence under .halo/evidence/
-6. Update baton
-
-Next milestone prompt:
-EOF
+    echo "Halo build cycle:"
+    echo "1. Read $path/.halo/baton.md + state.json"
+    echo "2. Pick next pending story from .halo/spec/STORIES.md or milestones"
+    echo "3. RED → impl → GREEN → verify → deploy → probe → only then share URL"
+    echo "4. Write evidence, update baton, then run: halo continue"
     if [[ -f "$path/.halo/milestones/index.json" ]]; then
-      "$PY" -c "import json; d=json.load(open('$path/.halo/milestones/index.json'));
-ms=[m for m in d.get('milestones',[]) if m.get('status')=='pending'];
-print(ms[0]['prompt'] if ms else '(none pending)')"
-    else
-      echo "(run: halo milestones)"
+      "$PY" -c "import json; d=json.load(open('$path/.halo/milestones/index.json')); ms=[m for m in d.get('milestones',[]) if m.get('status')=='pending']; print(ms[0]['prompt'] if ms else '(none pending)')"
     fi
+    ;;
+
+  go)
+    path="$(repo_arg "${1:-.}")"
+    export HALO_SYSTEM
+    "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path" >/dev/null 2>&1 || true
+    "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --enable --max-cycles 5
     ;;
 
   stop)
     path="$(repo_arg "${1:-.}")"
     "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status PAUSED
-    echo "# Baton
-- Status: PAUSED
-- Next: human halo resume
-- Do not: autonomous build" > "$path/.halo/baton.md"
+    "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --disable 2>/dev/null || true
     echo "PAUSED"
     ;;
 
   resume)
     path="$(repo_arg "${1:-.}")"
     "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status ACTIVE
-    echo "ACTIVE — read baton and continue phase"
+    echo "ACTIVE"
     ;;
 
-  escalate)
-    # D156/D164: JSON includes latest ids + scores_count/trajectories_count/match
+  continue)
     path="$(repo_arg "${1:-.}")"
-    reason="${2:-unspecified failure}"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_escalate.py" --repo "$path" --reason "$reason"
-    ;;
-
-  triage)
-    path="$(repo_arg "${1:-.}")"
-    "$0" status "$path"
-    echo "---"
-    echo "evidence:"; ls -la "$path/.halo/evidence" 2>/dev/null | tail -5 || echo "(none)"
-    echo "milestones:"; ls "$path/.halo/milestones" 2>/dev/null || echo "(none)"
+    export HALO_SYSTEM PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --write
+    echo "wrote $path/.halo/NEXT_PROMPT.md"
     ;;
 
   handoff)
     path="$(repo_arg "${1:-.}")"
-    out="$path/.halo/handoff.md"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    # D102: phase + next feature (or all_pass) at top for cold agents
-    phase_next="$($PY - <<PY
+    "$PY" - <<PY
 import json
+from datetime import datetime, timezone
 from pathlib import Path
-p = Path("$path")
-st = {}
+from halo_features import summary as feature_summary
+p = Path('$path')
+state = {}
 try:
-    st = json.loads((p/".halo"/"state.json").read_text())
+    state = json.loads((p / '.halo' / 'state.json').read_text(encoding='utf-8'))
 except Exception:
     pass
-phase = st.get("phase") or "?"
-nxt = "all_pass"
-sc = 0
-tc = 0
-match = True
-try:
-    from halo_features import summary as feature_summary
-    fs = feature_summary(p, compound=False)
-    n = fs.get("next")
-    if isinstance(n, dict) and n.get("id"):
-        nxt = f"{n.get('id')} requires_code={n.get('requires_code')}"
-    elif fs.get("all_pass"):
-        nxt = "all_pass"
-    else:
-        nxt = "none"
-    # D132: surface scores/trajectories health in handoff Snapshot
-    sc = int(fs.get("scores_count") or 0)
-    tc = int(fs.get("trajectories_count") or 0)
-    match = bool(fs.get("scores_trajectories_match", sc == tc))
-    # D133: latest score/trajectory ids (dash when missing/empty)
-    lsid = fs.get("latest_score_id") or "-"
-    ltid = fs.get("latest_trajectory_id") or "-"
-except Exception as e:
-    nxt = f"(summary error: {e})"
-    lsid = "-"
-    ltid = "-"
-print(f"phase={phase}")
-print(f"next_feature={nxt}")
-print(f"scores_count: {sc}")
-print(f"trajectories_count: {tc}")
-print(f"scores_trajectories_match: {'true' if match else 'false'}")
-print(f"latest_score_id: {lsid}")
-print(f"latest_trajectory_id: {ltid}")
+fs = feature_summary(p, compound=False)
+phase = state.get('phase') or '?'
+nxt = fs.get('next') or {}
+nid = nxt.get('id') if isinstance(nxt, dict) else None
+next_feature = nid if nid else 'all_pass'
+sc = int(fs.get('scores_count') or 0)
+tc = int(fs.get('trajectories_count') or 0)
+match = bool(fs.get('scores_trajectories_match'))
+lsid = fs.get('latest_score_id') or '-'
+ltid = fs.get('latest_trajectory_id') or '-'
+baton = ''
+if (p / '.halo' / 'baton.md').exists():
+    baton = (p / '.halo' / 'baton.md').read_text(encoding='utf-8')
+spec_index = ''
+if (p / '.halo' / 'spec').is_dir():
+    spec_index = '\n'.join(sorted(p.name for p in (p / '.halo' / 'spec').iterdir() if p.is_file()))
+out = f"""# Halo handoff
+Generated: {datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}
+
+## Snapshot
+- phase={phase}
+- next_feature={next_feature}
+- scores_count: {sc}
+- trajectories_count: {tc}
+- scores_trajectories_match: {'true' if match else 'false'}
+- latest_score_id: {lsid}
+- latest_trajectory_id: {ltid}
+
+## Continue
+1. Read AGENTS.md and .halo/baton.md
+2. Read docs/WORKFLOWS.md in Halo system if phase unclear
+3. Run: halo status
+
+## State
+```json
+{json.dumps(state, indent=2)}
+```
+
+## Baton
+{baton}
+
+## Spec index
+{spec_index}
+"""
+(p / '.halo' / 'handoff.md').write_text(out, encoding='utf-8')
 PY
-)"
-    {
-      echo "# Halo handoff"
-      echo
-      echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      echo
-      echo "## Snapshot"
-      echo "$phase_next" | sed 's/^/- /'
-      echo
-      echo "## Continue"
-      echo "1. Read AGENTS.md and .halo/baton.md"
-      echo "2. Read docs/WORKFLOWS.md in Halo system if phase unclear"
-      echo "3. Run: halo status"
-      echo
-      echo "## State"
-      echo '```json'
-      cat "$path/.halo/state.json" 2>/dev/null || echo '{}'
-      echo '```'
-      echo
-      echo "## Baton"
-      cat "$path/.halo/baton.md" 2>/dev/null || true
-      echo
-      echo "## Spec index"
-      ls "$path/.halo/spec" 2>/dev/null || true
-    } > "$out"
-    echo "handoff → $out"
+    echo "handoff → $path/.halo/handoff.md"
     ;;
 
   doctor)
-    path="."
-    strict=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --strict) strict+=(--strict); shift ;;
-        *) path="$1"; shift ;;
-      esac
-    done
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_doctor.py" --halo-system "$HALO_SYSTEM" --repo "$path" "${strict[@]+"${strict[@]}"}"
-    ;;
-
-  go)
-    path="."
-    mode=enable
-    max=5
-    spawn_flag=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --off|off|disable) mode=disable; shift ;;
-        --status|status) mode=status; shift ;;
-        --plan|plan) mode=plan; shift ;;
-        --max) max="$2"; shift 2 ;;
-        --spawn) spawn_flag+=(--spawn); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    if [[ ! -f "$path/.halo/state.json" ]]; then
-      "$0" init "$path"
-    fi
-    case "$mode" in
-      enable)
-        export HALO_SYSTEM
-        "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path" >/dev/null 2>&1 || true
-        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --enable --max-cycles "$max" "${spawn_flag[@]+"${spawn_flag[@]}"}"
-        echo ""
-        echo "AUTONOMOUS ON + SELF-PROMPT. Skill: halo-go"
-        echo "NEXT_PROMPT: $path/.halo/NEXT_PROMPT.md"
-        echo "Continue later: $0 continue $path   |  spawn: $0 continue $path --spawn"
-        echo "Grok TUI: /goal (see docs/GROK-BUILD.md) or /loop 20m <NEXT_PROMPT body>"
-        ;;
-      disable)
-        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --disable
-        echo "AUTONOMOUS OFF"
-        ;;
-      status)
-        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --status
-        ;;
-      plan)
-        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --plan
-        ;;
-    esac
-    ;;
-
-  continue)
-    path="."
-    do_spawn=0
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --spawn) do_spawn=1; shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export HALO_SYSTEM PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    if [[ "$do_spawn" -eq 1 ]]; then
-      "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --spawn
-    else
-      "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --write
-      echo "wrote $path/.halo/NEXT_PROMPT.md"
-      echo "spawn: $0 continue $path --spawn"
-      echo "or: grok --no-auto-update --prompt-file $path/.halo/NEXT_PROMPT.md --cwd $path --always-approve --output-format streaming-json --max-turns 1"
-    fi
-    ;;
-
-  link-skills)
     path="$(repo_arg "${1:-.}")"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path"
-    ;;
-
-  loop)
-    path="."
-    max=50
-    spawn_args=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --max) max="$2"; shift 2 ;;
-        --spawn) spawn_args+=(--spawn); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export HALO_SYSTEM
-    ( cd "$path" && bash "$HALO_SYSTEM/scripts/setup-halo-loop.sh" --max "$max" "${spawn_args[@]+"${spawn_args[@]}"}" )
-    ;;
-
-  loop-cancel)
-    path="$(repo_arg "${1:-.}")"
-    export HALO_SYSTEM
-    ( cd "$path" && bash "$HALO_SYSTEM/scripts/cancel-halo-loop.sh" )
-    ;;
-
-  evidence)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_evidence.py" --repo "$path"
-    ;;
-
-  features)
-    path="."
-    rest=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        sync|summary|pass|fail|seed) rest+=("$1"); shift ;;
-        --*) rest+=("$1"); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    if [[ ${#rest[@]} -eq 0 ]]; then rest=(summary); fi
-    cmd="${rest[0]}"
-    # bash set -u: empty slice after shift must not expand unbound
-    fargs=()
-    if [[ ${#rest[@]} -gt 1 ]]; then
-      fargs=("${rest[@]:1}")
-    fi
-    case "$cmd" in
-      sync) "$PY" "$HALO_SYSTEM/python/halo_features.py" sync --repo "$path" ;;
-      summary) "$PY" "$HALO_SYSTEM/python/halo_features.py" summary --repo "$path" ;;
-      pass) "$PY" "$HALO_SYSTEM/python/halo_features.py" pass --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
-      fail) "$PY" "$HALO_SYSTEM/python/halo_features.py" fail --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
-      seed) "$PY" "$HALO_SYSTEM/python/halo_features.py" seed --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
-      *) die "features: sync|summary|pass|fail|seed" ;;
-    esac
-    ;;
-
-  progress)
-    path="."
-    sub=tail
-    note=""
-    event="note"
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        add|tail) sub="$1"; shift ;;
-        --note) note="$2"; shift 2 ;;
-        --event) event="$2"; shift 2 ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    if [[ "$sub" == "add" ]]; then
-      "$PY" "$HALO_SYSTEM/python/halo_progress.py" add --repo "$path" --event "$event" --note "$note"
-    else
-      "$PY" "$HALO_SYSTEM/python/halo_progress.py" tail --repo "$path"
-    fi
-    ;;
-
-  lock-runner)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_lock.py" --repo "$path" --acquire --owner "halo-$$"
-    ;;
-
-  unlock-runner)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_lock.py" --repo "$path" --release --owner "halo-$$"
-    ;;
-
-  budget)
-    path="."
-    rest=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        check|show|record|halt) rest+=("$1"); shift ;;
-        --*) rest+=("$1"); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    if [[ ${#rest[@]} -eq 0 ]]; then rest=(show); fi
-    "$PY" "$HALO_SYSTEM/python/halo_budget.py" --repo "$path" "${rest[@]}"
-    ;;
-
-  ratchet)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_ratchet.py" --repo "$path" --json
-    ;;
-
-  arena)
-    path="."
-    fid=""
-    spawn_check=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --id) fid="$2"; shift 2 ;;
-        --spawn-check) spawn_check=(--spawn-check); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    [[ -n "$fid" ]] || die "arena requires --id Sxxx"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    # set -u: empty array expand is unbound on bash 3.2 / some 5.x without +
-    "$PY" "$HALO_SYSTEM/python/halo_arena.py" --repo "$path" verify --id "$fid" ${spawn_check[@]+"${spawn_check[@]}"}
-    ;;
-
-  commit-unit)
-    path="."
-    fid=""
-    msg=""
-    dry=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --id) fid="$2"; shift 2 ;;
-        --message) msg="$2"; shift 2 ;;
-        --dry-run) dry=(--dry-run); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    [[ -n "$fid" ]] || die "commit-unit requires --id Sxxx"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    args=(--repo "$path" --id "$fid")
-    [[ -n "$msg" ]] && args+=(--message "$msg")
-    "$PY" "$HALO_SYSTEM/python/halo_commit.py" "${args[@]}" ${dry[@]+"${dry[@]}"}
-    ;;
-
-
-  stories-sync)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_stories_sync.py" --repo "$path"
-    ;;
-
-  drive)
-    path="."
-    rest=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        spawn|status|should-drive) rest+=("$1"); shift ;;
-        --*) rest+=("$1"); shift ;;
-        *) path="$(repo_arg "$1")"; shift ;;
-      esac
-    done
-    path="$(repo_arg "$path")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    if [[ ${#rest[@]} -eq 0 ]]; then rest=(status); fi
-    "$PY" "$HALO_SYSTEM/python/halo_drive.py" --repo "$path" --halo-system "$HALO_SYSTEM" "${rest[@]}"
-    ;;
-
-  cycle-smoke)
-    path="$(repo_arg "${1:-.}")"
-    bash "$HALO_SYSTEM/scripts/halo-cycle-smoke.sh" "$path"
-    ;;
-
-  plan)
-    path="$(repo_arg "${1:-.}")"
-    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_planner.py" --repo "$path" --halo-system "$HALO_SYSTEM"
-    ;;
-
-  watchdog)
-    path="$(repo_arg "${1:-.}")"
-    secs="${2:-15}"
-    export HALO_SYSTEM
-    if [[ -n "${HALO_ACP:-}" ]]; then
-      exec "$PY" "$HALO_SYSTEM/python/halo_acp_supervisor.py" --repo "$path" --halo-system "$HALO_SYSTEM"
-    else
-      exec bash "$HALO_SYSTEM/scripts/halo-watchdog.sh" "$path" "$secs"
-    fi
-    ;;
-
-  reinstantiate|dogfood-reinstantiate)
-    path="$(repo_arg "${1:-.}")"
-    export HALO_SYSTEM
-    bash "$HALO_SYSTEM/scripts/halo-dogfood-reinstantiate.sh" "$path"
-    ;;
-
-  workflows)
-    echo "$HALO_SYSTEM/docs/WORKFLOWS.md"
+    "$PY" "$HALO_SYSTEM/python/halo_doctor.py" --halo-system "$HALO_SYSTEM" --repo "$path"
     ;;
 
   *)

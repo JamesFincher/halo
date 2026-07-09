@@ -91,27 +91,19 @@ Any phase → `BLOCKED` (secrets, 3 fails, denylist, budget)
 |---------|--------------|-------------|
 | `init [path]` | bootstrap → intake | Init product `.halo` |
 | `status [path]` | — | Phase, verdict, story, last demo |
-| `baton [path]` | — | Print handoff |
 | `specs [path]` | → spec_review | Write spec pack from intake |
 | `lock [path]` | → readiness | Lock specs |
 | `unlock [path]` | → spec_review | Unlock for revision |
 | `ready [path]` | readiness | Run readiness gate |
 | `scaffold [path]` | → build | Scaffold + milestones + demo0 |
-| `milestones [path]` | — | Regenerate milestone prompts |
-| `probe --url` | — | Live probe only |
 | `build [path]` | build | One cycle instruction |
+| `go [path]` | autonomous | Start continuous drive |
 | `stop [path]` | PAUSED | Kill switch soft |
 | `resume [path]` | ACTIVE | Clear pause |
-| `escalate [path]` | ESCALATED | Write escalation packet |
-| `triage [path]` | — | Health summary |
-| `handoff [path]` | — | Context pack |
-| `doctor [path]` | — | Validate install + product |
-| `go [path]` | autonomous | Arm continuous drive |
 | `continue [path]` | — | Refresh NEXT_PROMPT |
-| `loop [path]` | — | Arm Stop-hook loop |
-| `features [path]` | — | sync/summary/pass/fail/seed |
-| `progress [path]` | — | add/tail |
-| `budget [path]` | — | check/show/record/halt |
+| `handoff [path]` | — | Context pack for another agent |
+| `doctor [path]` | — | Validate install + product |
+| `help` | — | Show command list |
 
 ## Evidence certificates
 

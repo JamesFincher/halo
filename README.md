@@ -43,41 +43,24 @@ Status values: `ACTIVE`, `PAUSED`, `BLOCKED`, `ESCALATED`, `COMPLETE`.
 ## CLI
 
 ```
-halo init [path]                         bootstrap .halo
-halo status [path]                       phase / story / demo
-halo baton [path]                        print handoff
-halo specs [path]                        write .halo/spec/*
-halo lock [path]                         spec_status → locked
-halo unlock [path]                       return to spec_review
-halo ready [path] [--allow-degraded]     lifecycle readiness gate
-halo scaffold [path] [--profile ...]     skeleton + Demo 0
-halo milestones [path]                   regenerate milestone prompts
-halo probe --url URL                     live HTTP probe
-halo build [path]                        next cycle instructions
-halo stop [path]                         PAUSE loop
-halo resume [path]                       ACTIVE
-halo escalate [path] [reason]            write escalation packet
-halo triage [path]                       health summary
-halo handoff [path]                      context pack for another agent
-halo doctor [path] [--strict]            system + product integrity
-halo evidence [path]                     validate evidence certs
-halo go [path] [--max N] [--spawn]       arm autonomous mode
-halo continue [path] [--spawn]           write NEXT_PROMPT; optionally spawn
-halo link-skills [path]                  symlink factory skills into product
-halo loop [path] [--max N]               arm Stop-hook loop
-halo loop-cancel [path]                  disarm loop
-halo features [path] sync|summary|pass|fail|seed
-halo progress [path] add|tail
-halo budget [path] check|show|record|halt
-halo ratchet [path]                      test-ratchet scan
-halo arena [path] --id Sxxx [--spawn-check]
-halo commit-unit [path] --id Sxxx
-halo drive [path] spawn|status|should-drive
-halo plan [path]                         refresh NEXT_PROMPT
-halo watchdog [path] [secs]              planner + spawn loop
-halo cycle-smoke [path]                  factory smoke test
-halo reinstantiate [path]                reset local control plane
+halo init [path]          bootstrap .halo
+halo status [path]        phase / story / demo
+halo specs [path]         write .halo/spec/*
+halo lock [path]          spec_status → locked
+halo unlock [path]        return to spec_review
+halo ready [path]         lifecycle readiness gate
+halo scaffold [path]      skeleton + Demo 0
+halo build [path]         next cycle instructions
+halo go [path]            start autonomous mode
+halo stop [path]          PAUSE loop
+halo resume [path]        ACTIVE
+halo continue [path]      refresh NEXT_PROMPT
+halo handoff [path]       context pack for another agent
+halo doctor [path]        system + product integrity
+halo help                 show this list
 ```
+
+Advanced tooling still lives under `python/` and `scripts/` for direct use.
 
 ## Hard rules
 
