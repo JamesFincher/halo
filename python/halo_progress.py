@@ -38,6 +38,35 @@ def factory_dirty_count(repo: Path) -> int:
     return n
 
 
+def scores_count(repo: Path) -> int:
+    """Count score stub JSON files under .halo/scores/ (D128)."""
+    scores = repo / ".halo" / "scores"
+    if not scores.is_dir():
+        return 0
+    try:
+        return sum(1 for p in scores.iterdir() if p.is_file() and p.suffix == ".json")
+    except OSError:
+        return 0
+
+
+def trajectories_count(repo: Path) -> int:
+    """Count GT-*.json golden trajectories under .halo/trajectories/ (D128)."""
+    traj = repo / ".halo" / "trajectories"
+    if not traj.is_dir():
+        return 0
+    try:
+        return sum(
+            1
+            for p in traj.iterdir()
+            if p.is_file() and p.suffix == ".json" and p.name.upper().startswith("GT-")
+        )
+    except OSError:
+        return 0
+
+
+_UNIT_EVENTS = frozenset({"unit", "unit_done", "feature_pass", "cycle"})
+
+
 def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path:
     halo = repo / ".halo"
     halo.mkdir(parents=True, exist_ok=True)
@@ -45,8 +74,14 @@ def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path
     md = halo / "progress.md"
     detail = dict(detail or {})
     # D091: unit events auto-record factory dirty count
-    if str(event).lower() in ("unit", "unit_done", "feature_pass", "cycle") and "dirty_count" not in detail:
-        detail["dirty_count"] = factory_dirty_count(repo)
+    # D128: unit events auto-record scores_count and trajectories_count
+    if str(event).lower() in _UNIT_EVENTS:
+        if "dirty_count" not in detail:
+            detail["dirty_count"] = factory_dirty_count(repo)
+        if "scores_count" not in detail:
+            detail["scores_count"] = scores_count(repo)
+        if "trajectories_count" not in detail:
+            detail["trajectories_count"] = trajectories_count(repo)
     row = {"at": utc_now(), "event": event, **detail}
     with jsonl.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
