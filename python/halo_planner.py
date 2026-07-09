@@ -83,6 +83,10 @@ def study(repo: Path) -> dict[str, Any]:
     trajectories_count = (
         len(list(traj_dir.glob("GT-*.json"))) if traj_dir.is_dir() else 0
     )
+    # D118: prefer summary helpers (max S### + payload id) when available
+    latest_score_id = None
+    if isinstance(feats, dict) and "latest_score_id" in feats:
+        latest_score_id = feats.get("latest_score_id")
     plan = {
         "at": utc_now(),
         "phase": state.get("phase"),
@@ -101,6 +105,7 @@ def study(repo: Path) -> dict[str, Any]:
         "roadmap_exhausted": roadmap_exhausted,
         "scores_count": scores_count,
         "scores_missing": scores_count == 0,
+        "latest_score_id": latest_score_id,
         "trajectories_count": trajectories_count,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],

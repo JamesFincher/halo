@@ -495,6 +495,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "not an error so strict still passes; skip when both zero",
         ],
     ),
+    # Batch 21+ — plan/baton surface latest score+trajectory ids
+    (
+        "plan-latest includes latest_score_id alongside scores_count",
+        [
+            "study/write_plan sets latest_score_id string or null",
+            "max S### under .halo/scores/; null when empty/missing",
+        ],
+    ),
+    (
+        "plan-latest includes latest_trajectory_id alongside trajectories_count",
+        [
+            "study/write_plan sets latest_trajectory_id string or null",
+            "max GT-### under .halo/trajectories/; null when empty/missing",
+        ],
+    ),
+    (
+        "baton.md records scores_count and trajectories_count after planner run",
+        [
+            "write_plan baton lines include scores_count and trajectories_count",
+            "zeros when dirs empty/missing",
+        ],
+    ),
 ]
 
 
