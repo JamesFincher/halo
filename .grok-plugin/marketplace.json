@@ -1,0 +1,19 @@
+{
+  "name": "halo",
+  "description": "Autonomous product development system for Grok Build — intake, specs, readiness, scaffold, build, live demos.",
+  "owner": {
+    "name": "James Fincher"
+  },
+  "plugins": [
+    {
+      "name": "halo",
+      "description": "Full Halo lifecycle skills (bootstrap, intake, spec-pack, readiness stub).",
+      "category": "development",
+      "source": {
+        "type": "local",
+        "path": "."
+      },
+      "keywords": ["halo", "prd", "scaffold", "autonomous", "build-loop"]
+    }
+  ]
+}
