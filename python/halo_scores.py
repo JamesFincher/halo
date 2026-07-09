@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110)."""
+"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110/D113)."""
 
 from __future__ import annotations
 
@@ -56,6 +56,39 @@ def _score_files(repo: Path) -> list[Path]:
 def list_scores(repo: Path) -> dict[str, Any]:
     """List cycle scores: count + latest id (D110)."""
     files = _score_files(repo)
+    count = len(files)
+    latest: str | None = None
+    if files:
+        last = files[-1]
+        try:
+            payload = json.loads(last.read_text(encoding="utf-8"))
+            latest = str(payload.get("id") or last.stem)
+        except (OSError, json.JSONDecodeError):
+            latest = last.stem
+    return {
+        "count": count,
+        "latest": latest,
+        "ids": [p.stem for p in files],
+    }
+
+
+def _trajectory_files(repo: Path) -> list[Path]:
+    """Return GT-*.json trajectory paths sorted by numeric id."""
+    traj = repo / ".halo" / "trajectories"
+    if not traj.is_dir():
+        return []
+    found: list[tuple[int, Path]] = []
+    for p in traj.glob("GT-*.json"):
+        m = re.match(r"^GT-(\d+)\.json$", p.name, re.I)
+        if m:
+            found.append((int(m.group(1)), p))
+    found.sort(key=lambda t: t[0])
+    return [p for _, p in found]
+
+
+def list_trajectories(repo: Path) -> dict[str, Any]:
+    """List golden trajectories: count + latest id (D113)."""
+    files = _trajectory_files(repo)
     count = len(files)
     latest: str | None = None
     if files:
@@ -182,6 +215,16 @@ def main(argv: list[str] | None = None) -> int:
     lst.set_defaults(
         func=lambda args: print(
             json.dumps(list_scores(Path(args.repo)), indent=2)
+        )
+    )
+
+    trj = sub.add_parser(
+        "trajectories", help="list golden trajectories (count + latest id)"
+    )
+    trj.add_argument("--repo", default=".")
+    trj.set_defaults(
+        func=lambda args: print(
+            json.dumps(list_trajectories(Path(args.repo)), indent=2)
         )
     )
 
