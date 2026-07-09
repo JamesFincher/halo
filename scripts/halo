@@ -40,6 +40,8 @@ halo — autonomous product development system
   triage [path]            Health summary
   handoff [path]           Context pack for human/other agent
   doctor [path]            Validate Halo system + product integrity
+  go [path] [--off] [--max N]
+                           AUTONOMOUS mode — build without asking
   workflows                Show workflow map path
   help                     This help
 EOF
@@ -76,6 +78,7 @@ if rp.exists():
 print(f"product:  {s.get('product_name')}")
 print(f"status:   {s.get('status')}")
 print(f"phase:    {s.get('phase')}")
+print(f"auto:     {s.get('autonomous')}")
 print(f"spec:     {s.get('spec_status')}")
 print(f"ready:    {s.get('readiness_verdict') or r.get('verdict')}")
 print(f"story:    {s.get('current_story')}")
@@ -264,7 +267,7 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
   doctor)
     path="${1:-.}"
     echo "Halo system: $HALO_SYSTEM"
-    for f in python/halo_state.py python/halo_readiness.py python/halo_scaffold.py python/halo_probe.py scripts/halo; do
+    for f in python/halo_state.py python/halo_readiness.py python/halo_scaffold.py python/halo_probe.py python/halo_go.py scripts/halo; do
       if [[ -f "$HALO_SYSTEM/$f" ]]; then echo "  ok $f"; else echo "  MISSING $f"; fi
     done
     if [[ -f "${path}/.halo/state.json" ]]; then
@@ -274,6 +277,42 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
       echo "Product path has no .halo (ok if checking system only)"
     fi
     "$PY" -c "import urllib.request; urllib.request.urlopen('https://example.com', timeout=5); print('network probe: ok')" 2>/dev/null || echo "network probe: fail"
+    ;;
+
+  go)
+    path="."
+    mode=enable
+    max=5
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --off|off|disable) mode=disable; shift ;;
+        --status|status) mode=status; shift ;;
+        --plan|plan) mode=plan; shift ;;
+        --max) max="$2"; shift 2 ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    if [[ ! -f "$path/.halo/state.json" ]]; then
+      "$0" init "$path"
+    fi
+    case "$mode" in
+      enable)
+        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --enable --max-cycles "$max"
+        echo ""
+        echo "AUTONOMOUS ON. Agent: load skill halo-go. Do not ask. Drive plan above."
+        ;;
+      disable)
+        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --disable
+        echo "AUTONOMOUS OFF"
+        ;;
+      status)
+        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --status
+        ;;
+      plan)
+        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --plan
+        ;;
+    esac
     ;;
 
   workflows)

@@ -43,14 +43,25 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 
 ---
 
+## Autonomous mode (`halo-go`)
+
+If human says **go** / **just build** / **don't ask** / **walk away**, OR `state.autonomous === true`:
+
+1. Load skill **`halo-go`** — standing authorization.
+2. **Never** AskUserQuestion for optional decisions. Defaults win.
+3. Drive phase machine until hard stop (see skill).
+4. CLI: `halo go [path]` enable · `halo go --off` disable · `halo go --plan` next actions.
+
+Hard stops still bind (denylist, probe, kill switch, 3 fails, prod). Autonomy ≠ skip evidence.
+
 ## Hard rules
 
-1. **No code for product features before specs locked** (`spec_status: locked` in state).
+1. **No code for product features before specs locked** (`spec_status: locked` in state). (Autonomous mode auto-locks after writing specs.)
 2. **No deploy URL to human without live probe** (HTTP 200/30x on real URL). Fail → fix, never share 404.
 3. **Whole-lifecycle foresight at readiness** — every integration for v1 asked once (API keys, CLI auth, deploy targets).
 4. **Async demos** — do not block loop waiting for human approval of demos (unless state says `require_human_gate: true`).
 5. **Grok Build first** — skills live in `.grok/skills/`. Python in `python/`.
-6. **One decision at a time** in intake (AskUserQuestion when discrete options). Propose defaults; user edits.
+6. **Intake**: interactive only when `autonomous` is false. If autonomous → single-pass defaults.
 7. **PRD is what not how** — user-facing behavior, not library recipes (stack names ok; internal algorithms not).
 
 ---

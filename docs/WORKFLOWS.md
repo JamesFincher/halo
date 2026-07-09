@@ -81,6 +81,19 @@ spec_review ← unlock-specs (from readiness/scaffold/build) if product pivot
 3. Spec pack generated; human skims; lock  
 4. Same as H1 from readiness  
 
+### H3b — Full autonomous (`halo go`)
+
+1. Human: idea (optional) + **go** / `halo go`  
+2. Agent enables `autonomous: true`, never asks optional questions  
+3. Single-pass intake defaults → auto specs → auto-lock  
+4. Readiness with `--allow-degraded` if needed  
+5. Scaffold Demo0 local (probe)  
+6. Build cycles up to `autonomous_max_cycles` (default 5)  
+7. Stop only on hard stop; log decisions in `.halo/autonomous-log.md`  
+8. Human peeks demos async; no mid-flight questionnaires  
+
+**Commands:** `halo go` · agent skill `halo-go` · `halo go --off` to return interactive
+
 ### H4 — Deep product owner
 
 1. Full intake every phase  

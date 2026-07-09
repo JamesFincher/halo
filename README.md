@@ -52,7 +52,11 @@ grok plugin install /Users/james/code/halo --trust
 ./scripts/halo scaffold ~/code/my-app --profile fastapi --demo0 local
 ./scripts/halo status ~/code/my-app
 ./scripts/halo stop|resume|escalate|handoff|triage|doctor
+./scripts/halo go ~/code/my-app          # AUTONOMOUS — build without asking
+./scripts/halo go --off ~/code/my-app    # back to interactive
 ```
+
+**Autonomous:** skill `halo-go` + `halo go`. Defaults only; hard stops still bind.
 
 ### Skills (all workflows)
 
