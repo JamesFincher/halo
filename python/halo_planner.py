@@ -111,6 +111,8 @@ def study(repo: Path) -> dict[str, Any]:
         "latest_score_id": latest_score_id,
         "trajectories_count": trajectories_count,
         "latest_trajectory_id": latest_trajectory_id,
+        # D124: bool parity of score vs trajectory artifact counts
+        "scores_trajectories_match": scores_count == trajectories_count,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),

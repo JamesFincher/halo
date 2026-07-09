@@ -539,6 +539,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "false when counts diverge",
         ],
     ),
+    # Batch 23+ — plan/baton/status surface scores_trajectories_match + counts
+    (
+        "plan-latest includes scores_trajectories_match bool",
+        [
+            "study/write_plan sets scores_trajectories_match bool",
+            "true when scores_count == trajectories_count (including both zero)",
+        ],
+    ),
+    (
+        "baton.md records scores_trajectories_match after planner run",
+        [
+            "write_plan baton line includes scores_trajectories_match",
+            "true/false matching plan field",
+        ],
+    ),
+    (
+        "halo status prints scores_count trajectories_count and scores_trajectories_match",
+        [
+            "status human output includes scores_count and trajectories_count ints",
+            "scores_trajectories_match printed as true/false",
+        ],
+    ),
 ]
 
 
