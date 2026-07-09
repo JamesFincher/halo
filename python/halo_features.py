@@ -671,6 +671,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool when summary available",
         ],
     ),
+    # Batch 29+ — budget show latest ids + budget check score surface
+    (
+        "halo budget show JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "budget show top-level has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo budget check JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "budget check JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool when summary available",
+        ],
+    ),
+    (
+        "halo budget check JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "budget check top-level has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
 ]
 
 

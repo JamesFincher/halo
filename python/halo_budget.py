@@ -159,7 +159,7 @@ def halt(repo: Path, reason: str) -> None:
 
 
 def show_score_fields(repo: Path) -> dict[str, Any]:
-    """D141: scores/trajectories counts + match for budget show JSON."""
+    """D141/D142: scores/trajectories counts + match + latest ids for budget show JSON."""
     try:
         from halo_features import summary as feature_summary
 
@@ -174,12 +174,16 @@ def show_score_fields(repo: Path) -> dict[str, Any]:
             "scores_count": sc,
             "trajectories_count": tc,
             "scores_trajectories_match": match,
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
             "scores_count": 0,
             "trajectories_count": 0,
             "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
         }
 
 
@@ -213,6 +217,7 @@ def main() -> None:
     if args.cmd == "show":
         # D097: spend + max_iterations always co-present for operators
         # D141: scores/trajectories counts + match for operators
+        # D142: latest_score_id + latest_trajectory_id for operators
         b = load_budget(repo)
         out = {
             "budget": b,
