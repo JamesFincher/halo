@@ -159,7 +159,7 @@ def halt(repo: Path, reason: str) -> None:
 
 
 def show_score_fields(repo: Path) -> dict[str, Any]:
-    """D141/D142/D143: scores/trajectories counts + match + latest ids for budget show/check JSON."""
+    """D141–D144: scores/trajectories counts + match + latest ids for budget show/check JSON."""
     try:
         from halo_features import summary as feature_summary
 
@@ -205,6 +205,7 @@ def main() -> None:
 
     if args.cmd == "check":
         # D143: scores/trajectories counts + match on gate JSON (operators + inject)
+        # D144: latest_score_id + latest_trajectory_id (null when empty/missing)
         r = {**check(repo, next_iteration=args.next_iteration), **show_score_fields(repo)}
         print(json.dumps(r, indent=2))
         raise SystemExit(0 if r["verdict"] == "ALLOW" else 2)
