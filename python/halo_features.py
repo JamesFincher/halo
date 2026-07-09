@@ -517,6 +517,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "zeros when dirs empty/missing",
         ],
     ),
+    # Batch 22+ — baton/status/summary surface latest ids + count match
+    (
+        "baton.md records latest_score_id and latest_trajectory_id after planner run",
+        [
+            "write_plan baton lines include latest_score_id and latest_trajectory_id",
+            "dash or null when missing/empty",
+        ],
+    ),
+    (
+        "halo status prints latest_score_id and latest_trajectory_id when present",
+        [
+            "status human or JSON includes latest_score_id from features summary",
+            "latest_trajectory_id printed when non-null",
+        ],
+    ),
+    (
+        "features summary JSON includes top-level scores_trajectories_match bool",
+        [
+            "true when scores_count == trajectories_count (including both zero)",
+            "false when counts diverge",
+        ],
+    ),
 ]
 
 

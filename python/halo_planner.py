@@ -179,6 +179,15 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
         tc = int(plan.get("trajectories_count") or 0)
     except (TypeError, ValueError):
         tc = 0
+    # D121: surface latest score/trajectory ids (dash when null/missing)
+    raw_ls = plan.get("latest_score_id")
+    latest_score = str(raw_ls).strip() if raw_ls else "-"
+    if latest_score in ("", "None", "null"):
+        latest_score = "-"
+    raw_lt = plan.get("latest_trajectory_id")
+    latest_traj = str(raw_lt).strip() if raw_lt else "-"
+    if latest_traj in ("", "None", "null"):
+        latest_traj = "-"
     baton.write_text(
         "# Baton — planner refresh\n"
         f"- at: {plan.get('at')}\n"
@@ -187,6 +196,8 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
         f"- features: {plan.get('features')}\n"
         f"- scores_count: {sc}\n"
         f"- trajectories_count: {tc}\n"
+        f"- latest_score_id: {latest_score}\n"
+        f"- latest_trajectory_id: {latest_traj}\n"
         f"- dirty_factory: {plan.get('factory_dirty_count')}\n"
         "- Never force-add .halo/\n",
         encoding="utf-8",
