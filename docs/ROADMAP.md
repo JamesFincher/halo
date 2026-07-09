@@ -17,24 +17,25 @@
 - [x] Writes readiness.json, READINESS.md, .env.example, baton
 - [x] `lock-specs` state command
 
-## Slice 2 — Scaffold + Demo 0
+## Slice 2 — Scaffold + Demo 0 + full workflows ✅
 
-- [x] `halo-scaffold` skill contract (probe-before-share)
-- [ ] Stack-specific scaffolders (Next.js SaaS + FastAPI)
-- [ ] Port design-system patterns from bm-skills (optional)
-- [ ] Demo 0 deploy + live probe gate automated
-- [ ] Milestone prompt generation from MILESTONES.md + STORIES.md
+- [x] `docs/WORKFLOWS.md` — all human/agent paths
+- [x] `scripts/halo` CLI (init/status/specs/lock/ready/scaffold/…)
+- [x] nextjs-saas + fastapi + existing scaffolders
+- [x] Demo 0 local + live probe gate
+- [x] Milestone prompt generation + index.json
+- [x] Control skills: pause, escalate, handoff, revise, doctor, triage, deploy, verify, build
 
 ## Slice 3 — Build loop
 
-- [ ] Port grok-halo v2: budget, TDD, Arena, simplify, baton, golden trajectory
-- [ ] Wire probe into deploy notify
+- [x] `halo-build` / `halo-verify` / `halo-deploy` skill contracts
+- [ ] Port grok-halo v2 runner automation (budget, Arena, scores)
 - [ ] Self-authored next prompts from baton + remaining stories
 
 ## Slice 4 — Walk-away runner
 
-- [ ] `scripts/halo` or `python -m halo` start/stop/status
-- [ ] Lock file, daily caps, escalation packets
+- [x] `scripts/halo` surface (status/stop/resume/…)
+- [ ] Background loop lock + daily caps
 - [ ] Human dashboard notes / voice optional
 
 ## Non-goals near-term

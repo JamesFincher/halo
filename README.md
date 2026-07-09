@@ -11,7 +11,10 @@ idea → INTAKE → SPEC PACK → human iterate until happy
      → SCAFFOLD → MILESTONES → BUILD LOOP → live demo URLs
 ```
 
-Steal DNA: [grok-halo](https://github.com/JamesFincher/grok-halo) (loop, evidence, budget) + [bm-skills-grok-build](https://github.com/JamesFincher/bm-skills-grok-build) (intake grill, PRD, milestones). Halo is larger than either.
+**Every path documented:** [docs/WORKFLOWS.md](docs/WORKFLOWS.md) — no blind spots.  
+**CLI:** `./scripts/halo help`
+
+Steal DNA: [grok-halo](https://github.com/JamesFincher/grok-halo) + [bm-skills-grok-build](https://github.com/JamesFincher/bm-skills-grok-build).
 
 ---
 
@@ -38,26 +41,31 @@ grok plugin install /Users/james/code/halo --trust
 6. Halo readiness-gates secrets & tools for the **whole** lifecycle (e.g. Sentry now, not later).
 7. Scaffold → autonomous build loop → demo URLs that already probe live (HTTP must work before share).
 
-### Commands (later phases)
+### CLI (`scripts/halo`)
+
+```bash
+./scripts/halo help
+./scripts/halo init ~/code/my-app
+./scripts/halo specs ~/code/my-app    # after intake in state
+./scripts/halo lock ~/code/my-app
+./scripts/halo ready ~/code/my-app    # or --allow-degraded
+./scripts/halo scaffold ~/code/my-app --profile fastapi --demo0 local
+./scripts/halo status ~/code/my-app
+./scripts/halo stop|resume|escalate|handoff|triage|doctor
+```
+
+### Skills (all workflows)
 
 | Skill | When |
 |-------|------|
-| `halo-bootstrap` | First touch — instantiate Halo into target project |
-| `halo-intake` | Grill: idea → locked product decisions |
-| `halo-spec-pack` | Write full doc suite under `.halo/spec/` |
-| `halo-readiness` | Lifecycle foresight + CLI/env gate → GO/NO_GO/DEGRADED |
-| `halo-scaffold` | Skeleton + milestones + Demo 0 (probe before share) |
-| `halo-build` | *(next)* Autonomous TDD → verify → deploy loop |
-
-### Python CLI
-
-```bash
-python3 python/halo_state.py init --repo /path/to/product
-python3 python/halo_spec_write.py --repo /path/to/product
-python3 python/halo_state.py lock-specs --repo /path/to/product
-python3 python/halo_readiness.py --repo /path/to/product --write
-python3 python/halo_probe.py --url https://your-preview.example
-```
+| `halo-bootstrap` | Instantiate into product |
+| `halo-intake` | Grill |
+| `halo-spec-pack` | Giant docs |
+| `halo-readiness` | Foresight gate |
+| `halo-scaffold` | Skeleton + milestones + Demo 0 |
+| `halo-build` / `halo-verify` / `halo-deploy` | Build cycle |
+| `halo-status` / `halo-triage` / `halo-doctor` | Observe |
+| `halo-pause` / `halo-escalate` / `halo-handoff` / `halo-revise` | Control |
 
 ---
 
@@ -74,14 +82,16 @@ Do not invent a half-PRD and start coding. Spec pack locks first.
 
 ---
 
-## Status (v0.2)
+## Status (v0.3)
 
 | Slice | Status |
 |-------|--------|
 | Bootstrap + Intake + Spec pack | **done** |
 | Readiness foresight gate | **done** |
-| Scaffold contract + probe | skill contract; profiles next |
-| Build loop (grok-halo port) | planned |
+| Full workflow map (no blind spots) | **done** — WORKFLOWS.md + CLI |
+| Scaffold nextjs/fastapi/existing + Demo 0 probe | **done** |
+| Build cycle skill | **contract** (agent-run) |
+| Multi-cycle walk-away runner | planned |
 
 Architecture: `docs/ARCHITECTURE.md` · Lifecycle: `docs/LIFECYCLE.md`
 

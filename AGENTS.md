@@ -37,7 +37,9 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 | 6 Build loop | `halo-build` | async demos | code + **live** preview URLs |
 | 7 Complete | — | promote prod | all stories deployed |
 
-**Implementable now**: 0–3 fully; 4 contract; 5–6 planned.
+**Implementable now**: 0–6 (build cycle agent-driven). Runner automation later.  
+**Workflow map (no blind spots):** `docs/WORKFLOWS.md`  
+**CLI:** `scripts/halo help`
 
 ---
 
@@ -89,14 +91,18 @@ HALO.md                # product loop config (generated)
 
 ---
 
-## Python tools
+## CLI + Python
 
 ```bash
+./scripts/halo help
+./scripts/halo status
 python3 python/halo_state.py --help
-python3 python/halo_probe.py --url https://example.com   # later deploys
+python3 python/halo_probe.py --url https://example.com
 ```
 
-Prefer these over ad-hoc shell for state mutations.
+Prefer `scripts/halo` and python tools over ad-hoc shell for state mutations.
+
+If stuck: read `docs/WORKFLOWS.md` — every journey is listed.
 
 ---
 

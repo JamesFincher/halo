@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+# Halo CLI — single entry for humans & agents. No blind spots.
+set -euo pipefail
+
+HALO_SYSTEM="$(cd "$(dirname "$0")/.." && pwd)"
+PY="${PYTHON:-python3}"
+export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+
+die() { echo "error: $*" >&2; exit 1; }
+repo_arg() {
+  local r="${1:-.}"
+  cd "$r" 2>/dev/null || die "repo not found: $r"
+  pwd
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  help|-h|--help)
+    cat <<'EOF'
+halo — autonomous product development system
+
+  init [path]              Bootstrap .halo into product path
+  status [path]            Phase, readiness, story, last demo
+  baton [path]             Print handoff baton
+  specs [path]             Write .halo/spec/* from intake
+  lock [path]              Lock specs → readiness
+  unlock [path]            Unlock specs → spec_review
+  ready [path] [--allow-degraded]
+                           Lifecycle readiness gate
+  scaffold [path] [--profile auto|nextjs-saas|fastapi|existing]
+                           [--demo0 local|skip|vercel]
+  milestones [path]        Regenerate milestone prompts
+  probe --url URL          Live HTTP probe (never share fail)
+  build [path]             Print next build instructions (cycle)
+  stop [path]              PAUSE loop
+  resume [path]            ACTIVE again
+  escalate [path] [reason] Write escalation packet
+  triage [path]            Health summary
+  handoff [path]           Context pack for human/other agent
+  doctor [path]            Validate Halo system + product integrity
+  workflows                Show workflow map path
+  help                     This help
+EOF
+    ;;
+
+  init)
+    path="$(repo_arg "${1:-.}")"
+    mkdir -p "$path"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path" --force 2>/dev/null \
+      || "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path"
+    # copy product templates
+    for f in AGENTS.md HALO.md; do
+      if [[ ! -f "$path/$f" && -f "$HALO_SYSTEM/templates/project/$f" ]]; then
+        cp "$HALO_SYSTEM/templates/project/$f" "$path/$f"
+      fi
+    done
+    echo "init ok → $path  next: intake (skill halo-intake) or dump idea to agent"
+    ;;
+
+  status)
+    path="$(repo_arg "${1:-.}")"
+    if [[ ! -f "$path/.halo/state.json" ]]; then
+      die "not a Halo product (missing .halo/state.json). Run: halo init"
+    fi
+    "$PY" - <<PY
+import json
+from pathlib import Path
+p = Path("$path")
+s = json.loads((p/".halo/state.json").read_text())
+r = {}
+rp = p/".halo/readiness.json"
+if rp.exists():
+    r = json.loads(rp.read_text())
+print(f"product:  {s.get('product_name')}")
+print(f"status:   {s.get('status')}")
+print(f"phase:    {s.get('phase')}")
+print(f"spec:     {s.get('spec_status')}")
+print(f"ready:    {s.get('readiness_verdict') or r.get('verdict')}")
+print(f"story:    {s.get('current_story')}")
+print(f"demo:     {s.get('last_demo_url')}")
+print(f"profile:  {s.get('scaffold_profile')}")
+baton = p/".halo/baton.md"
+if baton.exists():
+    print("--- baton ---")
+    print(baton.read_text()[:800])
+PY
+    ;;
+
+  baton)
+    path="$(repo_arg "${1:-.}")"
+    cat "$path/.halo/baton.md" 2>/dev/null || die "no baton"
+    ;;
+
+  specs)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_spec_write.py" --repo "$path"
+    ;;
+
+  lock)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" lock-specs --repo "$path"
+    ;;
+
+  unlock)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --phase spec_review --spec-status drafting --status ACTIVE
+    echo "# Baton
+- Phase: spec_review
+- Next: revise .halo/spec then halo lock
+- Specs unlocked for revision" > "$path/.halo/baton.md"
+    echo "unlocked → spec_review"
+    ;;
+
+  ready)
+    path="."
+    allow=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --allow-degraded) allow+=(--allow-degraded); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    "$PY" "$HALO_SYSTEM/python/halo_readiness.py" --repo "$path" --write "${allow[@]+"${allow[@]}"}"
+    ;;
+
+  scaffold)
+    path="."
+    profile=auto
+    demo0=local
+    extra=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --profile) profile="$2"; shift 2 ;;
+        --demo0) demo0="$2"; shift 2 ;;
+        --skip-ready-check) extra+=(--skip-ready-check); shift ;;
+        --force) extra+=(--force); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    "$PY" "$HALO_SYSTEM/python/halo_scaffold.py" \
+      --repo "$path" \
+      --halo-system "$HALO_SYSTEM" \
+      --profile "$profile" \
+      --demo0 "$demo0" \
+      "${extra[@]+"${extra[@]}"}"
+    ;;
+
+  milestones)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_milestones.py" --repo "$path" --halo-system "$HALO_SYSTEM"
+    ;;
+
+  probe)
+    url=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --url) url="$2"; shift 2 ;;
+        *) url="$1"; shift ;;
+      esac
+    done
+    [[ -n "$url" ]] || die "probe --url URL"
+    "$PY" "$HALO_SYSTEM/python/halo_probe.py" --url "$url" --json
+    ;;
+
+  build)
+    path="$(repo_arg "${1:-.}")"
+    cat <<EOF
+Halo build cycle (agent):
+1. Read $path/.halo/baton.md + state.json
+2. Load skill halo-build
+3. Pick next pending story from .halo/spec/STORIES.md or milestones index
+4. RED → impl → GREEN → simplify → verify → deploy → probe → only then share URL
+5. Write evidence under .halo/evidence/
+6. Update baton
+
+Next milestone prompt:
+EOF
+    if [[ -f "$path/.halo/milestones/index.json" ]]; then
+      "$PY" -c "import json; d=json.load(open('$path/.halo/milestones/index.json'));
+ms=[m for m in d.get('milestones',[]) if m.get('status')=='pending'];
+print(ms[0]['prompt'] if ms else '(none pending)')"
+    else
+      echo "(run: halo milestones)"
+    fi
+    ;;
+
+  stop)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status PAUSED
+    echo "# Baton
+- Status: PAUSED
+- Next: human halo resume
+- Do not: autonomous build" > "$path/.halo/baton.md"
+    echo "PAUSED"
+    ;;
+
+  resume)
+    path="$(repo_arg "${1:-.}")"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status ACTIVE
+    echo "ACTIVE — read baton and continue phase"
+    ;;
+
+  escalate)
+    path="$(repo_arg "${1:-.}")"
+    reason="${2:-unspecified failure}"
+    mkdir -p "$path/.halo/escalations"
+    ts="$("$PY" -c 'import time; print(int(time.time()))')"
+    f="$path/.halo/escalations/esc-${ts}.md"
+    {
+      echo "# Escalation"
+      echo
+      echo "- When: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "- Reason: $reason"
+      echo
+      echo "## State"
+      cat "$path/.halo/state.json" 2>/dev/null || true
+      echo
+      echo "## Baton"
+      cat "$path/.halo/baton.md" 2>/dev/null || true
+    } > "$f"
+    "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status ESCALATED
+    echo "escalated → $f"
+    ;;
+
+  triage)
+    path="$(repo_arg "${1:-.}")"
+    "$0" status "$path"
+    echo "---"
+    echo "evidence:"; ls -la "$path/.halo/evidence" 2>/dev/null | tail -5 || echo "(none)"
+    echo "milestones:"; ls "$path/.halo/milestones" 2>/dev/null || echo "(none)"
+    ;;
+
+  handoff)
+    path="$(repo_arg "${1:-.}")"
+    out="$path/.halo/handoff.md"
+    {
+      echo "# Halo handoff"
+      echo
+      echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo
+      echo "## Continue"
+      echo "1. Read AGENTS.md and .halo/baton.md"
+      echo "2. Read docs/WORKFLOWS.md in Halo system if phase unclear"
+      echo "3. Run: halo status"
+      echo
+      echo "## State"
+      echo '```json'
+      cat "$path/.halo/state.json" 2>/dev/null || echo '{}'
+      echo '```'
+      echo
+      echo "## Baton"
+      cat "$path/.halo/baton.md" 2>/dev/null || true
+      echo
+      echo "## Spec index"
+      ls "$path/.halo/spec" 2>/dev/null || true
+    } > "$out"
+    echo "handoff → $out"
+    ;;
+
+  doctor)
+    path="${1:-.}"
+    echo "Halo system: $HALO_SYSTEM"
+    for f in python/halo_state.py python/halo_readiness.py python/halo_scaffold.py python/halo_probe.py scripts/halo; do
+      if [[ -f "$HALO_SYSTEM/$f" ]]; then echo "  ok $f"; else echo "  MISSING $f"; fi
+    done
+    if [[ -f "${path}/.halo/state.json" ]]; then
+      echo "Product: $(cd "$path" && pwd)"
+      "$0" status "$path" || true
+    else
+      echo "Product path has no .halo (ok if checking system only)"
+    fi
+    "$PY" -c "import urllib.request; urllib.request.urlopen('https://example.com', timeout=5); print('network probe: ok')" 2>/dev/null || echo "network probe: fail"
+    ;;
+
+  workflows)
+    echo "$HALO_SYSTEM/docs/WORKFLOWS.md"
+    ;;
+
+  *)
+    die "unknown command: $cmd (try: halo help)"
+    ;;
+esac
