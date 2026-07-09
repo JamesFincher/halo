@@ -236,7 +236,90 @@ def set_pass(
     return data
 
 
-def summary(repo: Path) -> dict[str, Any]:
+def _next_d_id(existing_ids: set[str]) -> str:
+    """Allocate next D### id above current max."""
+    max_n = 0
+    for i in existing_ids:
+        m = re.match(r"^D(\d+)$", str(i), re.I)
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    return f"D{max_n + 1:03d}"
+
+
+def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
+    """When dogfood compounding + all_pass, append 3 new D-features once per UTC day (D030)."""
+    repo = Path(repo)
+    state: dict[str, Any] = {}
+    sp = repo / ".halo" / "state.json"
+    if sp.exists():
+        try:
+            state = json.loads(sp.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            state = {}
+    if not (state.get("dogfood") or state.get("dogfood_mode") == "compounding"):
+        return {"seeded": False, "reason": "not_dogfood"}
+
+    data = load_list(repo)
+    feats = data.get("features") or []
+    if not feats:
+        return {"seeded": False, "reason": "empty_list"}
+    if not all(f.get("passes") for f in feats) and not force:
+        return {"seeded": False, "reason": "not_all_pass"}
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    seed_p = repo / ".halo" / "compound-seed.json"
+    seed_meta: dict[str, Any] = {}
+    if seed_p.exists():
+        try:
+            seed_meta = json.loads(seed_p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            seed_meta = {}
+    if seed_meta.get("last_seed_day") == today and not force:
+        return {"seeded": False, "reason": "already_seeded_today", "day": today}
+
+    existing = {str(f.get("id")) for f in feats if f.get("id")}
+    batch_n = int(seed_meta.get("batch") or 0) + 1
+    templates = [
+        "Harden cycle-smoke: fail if denylist paths appear in git status porcelain",
+        "NEXT_PROMPT includes budget check line + spend day_cycles",
+        "halo status prints feature remaining + drive.lock summary",
+        "Doctor error if autonomous without loop.json active",
+        "progress.jsonl tailed in SessionStart stderr boot line",
+    ]
+    # rotate templates by batch
+    picks = [templates[(batch_n + i) % len(templates)] for i in range(3)]
+    new_feats: list[dict[str, Any]] = []
+    for desc in picks:
+        fid = _next_d_id(existing)
+        existing.add(fid)
+        new_feats.append(
+            {
+                "id": fid,
+                "description": desc,
+                "category": "dogfood",
+                "passes": False,
+                "milestone": f"M-compound-{batch_n}",
+                "steps": [f"Implement: {desc}", "Run halo cycle-smoke .", "Evidence + features pass"],
+            }
+        )
+    append_features(repo, new_feats)
+    seed_meta = {
+        "last_seed_day": today,
+        "batch": batch_n,
+        "seeded_ids": [f["id"] for f in new_feats],
+        "at": utc_now(),
+    }
+    seed_p.parent.mkdir(parents=True, exist_ok=True)
+    seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")
+    return {"seeded": True, "batch": batch_n, "ids": seed_meta["seeded_ids"], "day": today}
+
+
+def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
+    if compound:
+        try:
+            maybe_compound_seed(repo)
+        except Exception:  # noqa: BLE001
+            pass
     data = load_list(repo)
     feats = data.get("features") or []
     total = len(feats)

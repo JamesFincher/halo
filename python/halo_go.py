@@ -212,19 +212,22 @@ def next_actions(repo: Path) -> list[str]:
     elif phase == "build":
         # Prefer machine feature-list over vague "run cycles"
         try:
-            from halo_features import summary as feature_summary
+            from halo_features import maybe_compound_seed, summary as feature_summary
 
-            fs = feature_summary(repo)
+            seed = maybe_compound_seed(repo)
+            fs = feature_summary(repo, compound=False)
         except Exception:  # noqa: BLE001
             fs = {}
+            seed = {}
+        if seed.get("seeded"):
+            actions.append(
+                f"compound seed batch {seed.get('batch')}: {seed.get('ids')} — pick first new unit"
+            )
         if fs.get("all_pass") and fs.get("total", 0) > 0:
             if data.get("dogfood_mode") == "compounding" or data.get("dogfood"):
                 actions.append(
-                    "dogfood compounding: append next polish batch to feature-list "
-                    "(Dxxx) then implement ONE — do not idle on all_pass"
-                )
-                actions.append(
-                    "or run: halo dogfood-reinstantiate only if human requested reset"
+                    "dogfood compounding all_pass (seed may wait until next UTC day) — "
+                    "implement polish or wait for auto-seed"
                 )
             else:
                 actions.append(
@@ -243,7 +246,7 @@ def next_actions(repo: Path) -> list[str]:
             else:
                 n = data.get("autonomous_max_cycles") or 5
                 actions.append(f"run up to {n} halo-build cycles; pick next passes:false feature")
-            actions.append("probe before any deploy URL share")
+            actions.append("probe before any deploy URL share; dogfood: run halo cycle-smoke .")
     elif phase == "complete":
         actions.append("DONE: phase complete — emit <promise>HALO_COMPLETE</promise> if loop armed")
     else:
