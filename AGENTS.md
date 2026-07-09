@@ -13,14 +13,16 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 
 ```
 1. Is cwd the Halo system repo (this file + .grok/skills/halo-*)?
-   YES → User wants a product: ask TARGET_DIR (or use sibling empty folder).
-         Bootstrap INTO target. Do not treat Halo repo as the product.
+   YES → README "START HERE — Instantiation playbook". Get TARGET + idea (or go).
+         Bootstrap INTO target. First human reply = paths, commands, what you need next.
+         Do not treat Halo repo as the product.
 
 2. Does TARGET / cwd contain .halo/state.json?
    YES → Read phase. Resume from baton (.halo/baton.md). Load skill for phase.
 
 3. Empty or non-Halo project?
-   YES → Run skill: halo-bootstrap → then halo-intake → halo-spec-pack.
+   YES → HALO_SYSTEM / plugin → halo init + link-skills (or halo-bootstrap)
+         → then halo-intake (or halo-go if autonomous).
 ```
 
 ---
