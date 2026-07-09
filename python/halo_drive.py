@@ -5,7 +5,7 @@ Official Grok hooks docs: only PreToolUse is blocking; Stop is passive.
 Halo still emits Ralph-compatible JSON for Claude-compatible hosts, but on Grok
 the real continue path is:
 
-  1) headless: grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo
+  1) headless: grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve
   2) scheduler / /loop injecting a synthetic user turn into the TUI session
 
 This module implements (1) with a single-runner lock to avoid fork bombs.
@@ -163,14 +163,16 @@ def spawn_headless(
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"drive-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.log"
 
+    # NOTE: Do NOT use `grok -p --prompt-file` — `-p/--single` requires a
+    # positional prompt value, so `-p --prompt-file` fails CLI parse.
+    # Correct headless: --prompt-file alone + --always-approve (not --yolo).
     cmd = [
         grok,
-        "-p",
         "--prompt-file",
         str(prompt),
         "--cwd",
         str(repo),
-        "--yolo",
+        "--always-approve",
         "--max-turns",
         str(max_turns),
     ]

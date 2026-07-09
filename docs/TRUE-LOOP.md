@@ -16,7 +16,7 @@ That re-injects on **Claude Code**. On **Grok**, the hook runs, files update, bu
 
 | Path | Role |
 |------|------|
-| **Headless spawn** | On Stop (and on `halo go`), `halo_drive.spawn_headless` runs `grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo` |
+| **Headless spawn** | On Stop (and on `halo go`), `halo_drive.spawn_headless` runs `grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve --max-turns N` |
 | **User Stop hook** | `~/.grok/hooks/halo-true-loop.json` always fires Stop drive |
 | **Optional TUI /loop** | Same-session inject: `/loop 60s $(cat .halo/scheduler-prompt.txt)` |
 | Ralph JSON | Still emitted for Claude-compatible hosts |
@@ -76,10 +76,10 @@ These are **platform-injected user turns**, not skill fiction.
 #### 3. **Headless re-entry**
 
 ```bash
-grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo
+grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve --max-turns 80
 ```
 
-New process; that file **is** the user message. Reliable always.
+Do **not** use `grok -p --prompt-file` (`-p/--single` requires a prompt string and breaks). New process; that file **is** the user message. Reliable always.
 
 ---
 

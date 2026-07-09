@@ -54,6 +54,7 @@ halo — autonomous product development system
   arena [path] --id Sxxx   dual-lens independent verify (Arena)
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds dogfood .halo/)
+  drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
   stories-sync [path]       Sync STORIES.md from feature-list passes

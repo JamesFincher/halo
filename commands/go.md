@@ -10,7 +10,7 @@ argument-hint: "[--max N] [--no-spawn]"
 
 Grok Build **Stop hooks are passive** (docs: only `PreToolUse` blocks).  
 Ralph `decision:block` + `reason` works on Claude Code; **Grok ignores the block**.  
-Halo now **headless-spawns** `grok -p --prompt-file .halo/NEXT_PROMPT.md` on Stop so work continues without you typing.
+Halo now **headless-spawns** `grok --prompt-file .halo/NEXT_PROMPT.md --always-approve` on Stop so work continues without you typing.
 
 ## 1. Arm drive (run now)
 

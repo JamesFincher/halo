@@ -631,37 +631,13 @@ def write_prompt(
 
 
 def spawn_headless(repo: Path, max_turns: int = 80) -> dict[str, Any]:
-    prompt = repo / ".halo" / "NEXT_PROMPT.md"
-    if not prompt.exists():
-        write_prompt(repo)
-    grok = shutil.which("grok")
-    if not grok:
-        return {"ok": False, "error": "grok binary not on PATH", "prompt": str(prompt)}
-    cmd = [
-        grok,
-        "-p",
-        "--prompt-file",
-        str(prompt),
-        "--cwd",
-        str(repo),
-        "--yolo",
-        "--max-turns",
-        str(max_turns),
-        "--output-format",
-        "plain",
-    ]
+    """Delegate to halo_drive (correct grok CLI: --prompt-file + --always-approve)."""
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-        return {
-            "ok": r.returncode == 0,
-            "returncode": r.returncode,
-            "cmd": cmd,
-            "stdout_tail": (r.stdout or "")[-4000:],
-            "stderr_tail": (r.stderr or "")[-2000:],
-            "prompt": str(prompt),
-        }
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "timeout", "cmd": cmd, "prompt": str(prompt)}
+        from halo_drive import spawn_headless as drive_spawn
+
+        return drive_spawn(Path(repo), max_turns=max_turns, force=True)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e), "cmd": cmd, "prompt": str(prompt)}
 

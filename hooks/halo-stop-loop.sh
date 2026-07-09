@@ -66,7 +66,9 @@ if state.get("HALO_KILL_SWITCH"):
 if not active:
     raise SystemExit(0)
 
-# session isolation
+# session isolation — OPT-IN only.
+# Default OFF: Grok continuous drive uses headless spawn + TUI; different
+# session IDs must still fire the drive. Set loop.session_lock=true to pin.
 hook_session = ""
 try:
     hook = json.loads(hook_raw) if hook_raw.strip() else {}
@@ -74,7 +76,7 @@ try:
 except Exception:
     hook = {}
 state_session = loop.get("session_id") or ""
-if state_session and hook_session and state_session != hook_session:
+if loop.get("session_lock") and state_session and hook_session and state_session != hook_session:
     raise SystemExit(0)
 
 iteration = int(loop.get("iteration") or 0)
