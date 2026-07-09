@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,6 +76,51 @@ def disarm_loop(repo: Path, reason: str = "go_disabled") -> None:
     loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def ensure_watchdog(repo: Path, *, sleep_sec: int = 15) -> dict[str, Any]:
+    """Start scripts/halo-watchdog.sh if pidfile PID is not alive (D081).
+
+    Single-instance: existing live pidfile → no double-start.
+    """
+    repo = Path(repo).resolve()
+    logs = repo / ".halo" / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    pidfile = logs / "watchdog.pid"
+    if pidfile.is_file():
+        try:
+            old = int(pidfile.read_text(encoding="utf-8").strip() or "0")
+        except ValueError:
+            old = 0
+        if old and _pid_alive(old):
+            return {"started": False, "reason": "already_running", "pid": old}
+    # Locate factory scripts relative to this module or HALO_SYSTEM
+    halo_sys = Path(os.environ.get("HALO_SYSTEM") or Path(__file__).resolve().parents[1])
+    script = halo_sys / "scripts" / "halo-watchdog.sh"
+    if not script.is_file():
+        return {"started": False, "reason": "script_missing", "path": str(script)}
+    logf = logs / "watchdog.log"
+    try:
+        with logf.open("a", encoding="utf-8") as out:
+            proc = subprocess.Popen(
+                ["bash", str(script), str(repo), str(sleep_sec)],
+                cwd=str(repo),
+                stdout=out,
+                stderr=out,
+                start_new_session=True,
+                env={**os.environ, "HALO_SYSTEM": str(halo_sys)},
+            )
+        return {"started": True, "pid": proc.pid, "script": str(script)}
+    except OSError as e:
+        return {"started": False, "reason": str(e)}
+
+
 def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = True) -> dict[str, Any]:
     """Enable autonomous + true loop.
 
@@ -140,6 +187,11 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
         log_line(repo, "wrote .halo/NEXT_PROMPT.md")
     except Exception as e:  # noqa: BLE001
         log_line(repo, f"NEXT_PROMPT write failed: {e}")
+    # D081: ensure 15s watchdog is running (single-instance via pidfile)
+    if spawn:
+        wd = ensure_watchdog(repo)
+        log_line(repo, f"watchdog ensure: {wd}")
+        data["_watchdog"] = wd
     return data
 
 

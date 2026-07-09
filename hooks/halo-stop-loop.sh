@@ -216,7 +216,58 @@ try:
 except Exception:
     ratchet_violations = []
 
-# update loop counter first so prompt can include iteration
+# ── Grok-native continue path ────────────────────────────────────────
+# Official Grok hooks: Stop is PASSIVE (only PreToolUse blocks).
+# decision:block + reason is Ralph/Claude-compatible but Grok IGNORES the block.
+# So we MUST headless-spawn (or rely on scheduler_/loop) or the human has to type.
+spawn_meta = {}
+want_spawn = (
+    os.environ.get("HALO_NO_SPAWN") != "1"
+    and (
+        state.get("self_prompt_spawn")
+        or state.get("drive_mode") in ("headless", "hybrid", None, "")
+        or os.environ.get("HALO_STOP_SPAWN") == "1"
+        or os.environ.get("GROK_PLUGIN_ROOT")  # running under Grok plugin → always drive
+        or os.environ.get("GROK_WORKSPACE_ROOT")
+    )
+)
+if want_spawn:
+    try:
+        sys.path.insert(0, str(halo_sys / "python"))
+        from halo_drive import spawn_headless, clear_stale_drive_lock  # type: ignore
+
+        clear_stale_drive_lock(cwd)
+        spawn_meta = spawn_headless(cwd, max_turns=80, halo_sys=halo_sys)
+    except Exception as e:  # noqa: BLE001
+        spawn_meta = {"ok": False, "error": str(e)}
+
+# D080: when spawn is required, failed spawn does NOT burn iteration
+spawn_ok = bool(spawn_meta.get("ok")) if want_spawn else True
+burn_iteration = spawn_ok
+if want_spawn and not spawn_ok:
+    try:
+        log_dir = cwd / ".halo" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / "stop-last.json").write_text(
+            json.dumps(
+                {
+                    "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "iteration": iteration,
+                    "next_iter_not_applied": next_iter,
+                    "spawn": spawn_meta,
+                    "skip_reason": "spawn_failed_no_iteration_burn",
+                    "ok": False,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+    raise SystemExit(0)
+
+# update loop counter only after successful continue path (D080)
 loop["active"] = True
 loop["iteration"] = next_iter
 loop["max_iterations"] = max_iter
@@ -286,31 +337,6 @@ if promise_hit:
 
 if not prompt.strip():
     raise SystemExit(0)
-
-# ── Grok-native continue path ────────────────────────────────────────
-# Official Grok hooks: Stop is PASSIVE (only PreToolUse blocks).
-# decision:block + reason is Ralph/Claude-compatible but Grok IGNORES the block.
-# So we MUST headless-spawn (or rely on scheduler_/loop) or the human has to type.
-spawn_meta = {}
-want_spawn = (
-    os.environ.get("HALO_NO_SPAWN") != "1"
-    and (
-        state.get("self_prompt_spawn")
-        or state.get("drive_mode") in ("headless", "hybrid", None, "")
-        or os.environ.get("HALO_STOP_SPAWN") == "1"
-        or os.environ.get("GROK_PLUGIN_ROOT")  # running under Grok plugin → always drive
-        or os.environ.get("GROK_WORKSPACE_ROOT")
-    )
-)
-if want_spawn:
-    try:
-        sys.path.insert(0, str(halo_sys / "python"))
-        from halo_drive import spawn_headless, clear_stale_drive_lock  # type: ignore
-
-        clear_stale_drive_lock(cwd)
-        spawn_meta = spawn_headless(cwd, max_turns=80, halo_sys=halo_sys)
-    except Exception as e:  # noqa: BLE001
-        spawn_meta = {"ok": False, "error": str(e)}
 
 msg = (
     f"Halo loop {next_iter}/{max_iter} | halo-go | never ask"

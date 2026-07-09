@@ -281,6 +281,36 @@ def _watchdog_status(repo: Path) -> dict[str, Any]:
     }
 
 
+def _budget_status(repo: Path) -> dict[str, Any]:
+    """Budget gate for drive status (D079).
+
+    Vocabulary for agents: ALLOW | DEGRADE | PAUSE.
+    Maps halo_budget HALT → PAUSE; exception → DEGRADE (never crash status).
+    """
+    repo = Path(repo).resolve()
+    try:
+        from halo_budget import check as budget_check
+
+        raw = budget_check(repo)
+        if not isinstance(raw, dict):
+            return {"verdict": "DEGRADE", "reason": "budget check returned non-dict"}
+        out = dict(raw)
+        v = str(out.get("verdict") or "").upper()
+        if v == "HALT":
+            out["budget_verdict"] = "HALT"
+            out["verdict"] = "PAUSE"
+        elif v not in ("ALLOW", "DEGRADE", "PAUSE"):
+            # unknown → DEGRADE so agents don't treat as green light
+            out["budget_verdict"] = v or None
+            out["verdict"] = "DEGRADE"
+            out.setdefault("reason", f"unknown budget verdict {v!r}")
+        else:
+            out["verdict"] = v
+        return out
+    except Exception as e:  # noqa: BLE001 — status must stay readable
+        return {"verdict": "DEGRADE", "reason": f"budget check failed: {e}"}
+
+
 def scheduler_prompt(repo: Path) -> str:
     """Text for Grok /loop or scheduler_create — same-session inject."""
     return (
@@ -335,6 +365,25 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             feat_summary = {"error": str(e)}
         wd = _watchdog_status(repo)
+        budget: dict[str, Any] = {}
+        try:
+            from halo_budget import check as budget_check
+
+            b = budget_check(repo)
+            budget = {
+                "verdict": b.get("verdict"),  # ALLOW | HALT (map DEGRADE if present)
+                "reason": b.get("reason"),
+            }
+            # Normalize for roadmap wording ALLOW|DEGRADE|PAUSE
+            v = str(budget.get("verdict") or "")
+            if v == "HALT":
+                budget["verdict_ui"] = "PAUSE"
+            elif v == "ALLOW":
+                budget["verdict_ui"] = "ALLOW"
+            else:
+                budget["verdict_ui"] = v or "ALLOW"
+        except Exception as e:  # noqa: BLE001
+            budget = {"verdict": "ALLOW", "verdict_ui": "ALLOW", "error": str(e)}
         print(
             json.dumps(
                 {
@@ -346,6 +395,7 @@ def main() -> None:
                         "active": loop.get("active"),
                     },
                     "features": feat_summary,
+                    "budget": budget,
                     "watchdog_pid": wd.get("watchdog_pid"),
                     "watchdog_alive": wd.get("watchdog_alive"),
                     "heartbeat_age_sec": wd.get("heartbeat_age_sec"),

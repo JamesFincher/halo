@@ -290,6 +290,30 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "fresh heartbeat under 90s is not a doctor error",
         ],
     ),
+    (
+        "Budget gate verdict printed in drive status JSON",
+        ["drive status includes budget.verdict ALLOW|DEGRADE|PAUSE", "reads spend.json safely"],
+    ),
+    (
+        "Stop hook increments loop.iteration only when spawn ok",
+        ["failed spawn does not burn iteration", "stop-last records skip reason"],
+    ),
+    (
+        "halo go --spawn starts watchdog if not already running",
+        ["go with spawn checks pidfile", "does not double-start watchdog"],
+    ),
+    (
+        "Evidence cert schema validator rejects missing cert field",
+        ["halo evidence check fails without cert key", "GREEN_TEST accepted"],
+    ),
+    (
+        "NEXT_PROMPT lists last 3 autonomous-log lines under Progress",
+        ["tail autonomous-log.md into prompt context", "truncated lines"],
+    ),
+    (
+        "Compound seed skip reason no_new_roadmap triggers roadmap_exhausted in plan-latest",
+        ["plan-latest.json has roadmap_exhausted bool", "true only when last_reason matches"],
+    ),
 ]
 
 
