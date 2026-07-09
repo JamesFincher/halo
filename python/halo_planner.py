@@ -117,7 +117,12 @@ def study(repo: Path) -> dict[str, Any]:
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),
         "recommendation": _recommend(
-            repo, state, feats, factory_dirty, scores_count=scores_count
+            repo,
+            state,
+            feats,
+            factory_dirty,
+            scores_count=scores_count,
+            trajectories_count=trajectories_count,
         ),
     }
     return plan
@@ -130,6 +135,7 @@ def _recommend(
     dirty: list[str],
     *,
     scores_count: int | None = None,
+    trajectories_count: int | None = None,
 ) -> str:
     if (state.get("status") or "").upper() in ("PAUSED", "ESCALATED"):
         return "STOP: status not ACTIVE"
@@ -142,6 +148,18 @@ def _recommend(
         return (
             "scores_missing: run a requires_code unit so set_pass writes "
             ".halo/scores/S###.json then continue compounding"
+        )
+    # D129: warn when score vs trajectory counts diverge under dogfood
+    if (
+        dogfood
+        and scores_count is not None
+        and trajectories_count is not None
+        and scores_count != trajectories_count
+    ):
+        return (
+            f"scores_trajectories_diverge: scores_count={scores_count} "
+            f"trajectories_count={trajectories_count} — land units that write "
+            "both S### and GT-### to keep counts in step"
         )
     if feats.get("all_pass"):
         if dogfood:
