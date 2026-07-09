@@ -13,7 +13,8 @@ PY="${PYTHON:-python3}"
 cd "$ROOT"
 mkdir -p "$ROOT/.halo/logs"
 
-echo "[watchdog] root=$ROOT sleep=${SLEEP}s pid=$$  stop: halo go --off; kill $$"
+echo "[watchdog] root=$ROOT sleep=${SLEEP}s pid=$$  stop: halo go --off; kill \$(cat .halo/logs/watchdog.pid)"
+echo $$ > "$ROOT/.halo/logs/watchdog.pid"
 
 while true; do
   if [[ -f "$ROOT/.halo/loop.json" ]]; then

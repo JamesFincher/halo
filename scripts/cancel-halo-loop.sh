@@ -31,4 +31,15 @@ for name in ("loop.json", "drive.lock"):
         p.unlink(missing_ok=True)
 print("Halo drive disarmed (loop inactive, drive.lock cleared)")
 print("Also cancel TUI /loop jobs via scheduler_list + scheduler_delete if you created any")
+# kill watchdog via pidfile (avoid pkill self-match)
+wp = Path("$ROOT/.halo/logs/watchdog.pid")
+if wp.exists():
+    try:
+        import os, signal
+        pid = int(wp.read_text().strip())
+        os.kill(pid, signal.SIGTERM)
+        print(f"watchdog killed pid={pid}")
+    except Exception as e:
+        print(f"watchdog kill skipped: {e}")
+    wp.unlink(missing_ok=True)
 PY
