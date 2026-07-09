@@ -75,14 +75,21 @@ def study(repo: Path) -> dict[str, Any]:
     next_f = feats.get("next") if isinstance(feats, dict) else None
     seed_meta = _json(repo / ".halo" / "compound-seed.json")
     roadmap_exhausted = seed_meta.get("last_reason") == "no_new_roadmap"
-    scores_dir = repo / ".halo" / "scores"
-    scores_count = (
-        len(list(scores_dir.glob("S*.json"))) if scores_dir.is_dir() else 0
-    )
-    traj_dir = repo / ".halo" / "trajectories"
-    trajectories_count = (
-        len(list(traj_dir.glob("GT-*.json"))) if traj_dir.is_dir() else 0
-    )
+    # D163: prefer list_scores / list_trajectories culture (parity with doctor D162)
+    try:
+        from halo_scores import list_scores, list_trajectories
+
+        scores_count = int(list_scores(repo).get("count") or 0)
+        trajectories_count = int(list_trajectories(repo).get("count") or 0)
+    except Exception:  # noqa: BLE001
+        scores_dir = repo / ".halo" / "scores"
+        scores_count = (
+            len(list(scores_dir.glob("S*.json"))) if scores_dir.is_dir() else 0
+        )
+        traj_dir = repo / ".halo" / "trajectories"
+        trajectories_count = (
+            len(list(traj_dir.glob("GT-*.json"))) if traj_dir.is_dir() else 0
+        )
     # D118/D119: prefer summary helpers (max S### / GT-### + payload id) when available
     latest_score_id = None
     if isinstance(feats, dict) and "latest_score_id" in feats:
@@ -90,6 +97,7 @@ def study(repo: Path) -> dict[str, Any]:
     latest_trajectory_id = None
     if isinstance(feats, dict) and "latest_trajectory_id" in feats:
         latest_trajectory_id = feats.get("latest_trajectory_id")
+    scores_trajectories_match = scores_count == trajectories_count
     plan = {
         "at": utc_now(),
         "phase": state.get("phase"),
@@ -112,7 +120,7 @@ def study(repo: Path) -> dict[str, Any]:
         "trajectories_count": trajectories_count,
         "latest_trajectory_id": latest_trajectory_id,
         # D124: bool parity of score vs trajectory artifact counts
-        "scores_trajectories_match": scores_count == trajectories_count,
+        "scores_trajectories_match": scores_trajectories_match,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),
@@ -123,6 +131,7 @@ def study(repo: Path) -> dict[str, Any]:
             factory_dirty,
             scores_count=scores_count,
             trajectories_count=trajectories_count,
+            scores_trajectories_match=scores_trajectories_match,
         ),
     }
     return plan
@@ -136,6 +145,7 @@ def _recommend(
     *,
     scores_count: int | None = None,
     trajectories_count: int | None = None,
+    scores_trajectories_match: bool | None = None,
 ) -> str:
     if (state.get("status") or "").upper() in ("PAUSED", "ESCALATED"):
         return "STOP: status not ACTIVE"
@@ -150,16 +160,16 @@ def _recommend(
             "scores_missing: run a requires_code unit so set_pass writes "
             ".halo/scores/S###.json then continue compounding"
         )
-    # D129: warn when score vs trajectory counts diverge under dogfood
-    if (
-        dogfood
-        and scores_count is not None
-        and trajectories_count is not None
-        and scores_count != trajectories_count
-    ):
+    # D129/D163: warn when scores_trajectories_match is false under dogfood/compounding.
+    # Prefer explicit match flag (D163); else derive from counts (D129).
+    if scores_trajectories_match is None and scores_count is not None and trajectories_count is not None:
+        scores_trajectories_match = scores_count == trajectories_count
+    if dogfood and scores_trajectories_match is False:
+        sc = scores_count if scores_count is not None else "?"
+        tc = trajectories_count if trajectories_count is not None else "?"
         return (
-            f"scores_trajectories_diverge: scores_count={scores_count} "
-            f"trajectories_count={trajectories_count} — land units that write "
+            f"scores_trajectories_diverge: scores_count={sc} "
+            f"trajectories_count={tc} — land units that write "
             "both S### and GT-### to keep counts in step"
         )
     if feats.get("all_pass"):
