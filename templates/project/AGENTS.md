@@ -1,15 +1,15 @@
 # AGENTS.md — Product (Halo-managed)
 
-This project is developed by **Halo**. Read `.halo/baton.md` and `.halo/state.json` before acting.
+Read `.halo/baton.md` and `.halo/state.json` before acting.
 
 ## Phase rules
 
 | `phase` | Do |
 |---------|-----|
 | `intake` / `spec_pack` / `spec_review` | Docs only. No product feature code. |
-| `readiness` | Keys, CLIs, `.env.example` — no app scaffold until GO |
-| `scaffold` | Skeleton + Demo 0 with live probe |
-| `build` | One story per cycle; TDD; verify; deploy; **probe before share** |
+| `readiness` | Keys, CLIs, `.env.example` — no scaffold until GO. |
+| `scaffold` | Skeleton + Demo 0 with live probe. |
+| `build` | One story per cycle; TDD; verify; deploy; **probe before share**. |
 
 ## Spec source of truth
 
@@ -17,11 +17,12 @@ This project is developed by **Halo**. Read `.halo/baton.md` and `.halo/state.js
 
 ## Hard rules
 
-1. No feature code before `spec_status: locked`
-2. Never announce deploy URL without `python -m` / `python3` probe PASS
-3. No secrets in git
-4. Preview/dev deploys only unless human promotes
+1. No feature code before `spec_status: locked`.
+2. Never announce deploy URL without `halo_probe.py` PASS.
+3. No secrets in git.
+4. Preview/dev deploys only unless human promotes.
+5. If `autonomous` or `loop.json` active: load `halo-go`, use defaults, refresh `NEXT_PROMPT.md`.
 
 ## Continue
 
-If unsure: run matching halo skill (`halo-intake`, `halo-spec-pack`, …) from the Halo system install.
+If unsure: run the matching skill (`halo-intake`, `halo-spec-pack`, …) from the Halo system install.

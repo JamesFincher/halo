@@ -199,7 +199,7 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
         )
 
 
-    # Factory cleanliness: dogfood control plane must never be git-tracked
+    # Factory cleanliness: local control plane must never be git-tracked
     # (clones of Halo are for use on *other* projects — not full of self-instance state)
     if (halo_sys / "python" / "halo_state.py").exists() and (halo_sys / ".git").exists():
         try:
@@ -222,7 +222,7 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
                 issues.append(
                     {
                         "level": "error",
-                        "code": "dogfood_tracked",
+                        "code": "local_state_tracked",
                         "item": bad[:20],
                     }
                 )
@@ -233,7 +233,7 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
                     {
                         "level": "error",
                         "code": "gitignore_missing_halo",
-                        "item": "factory .gitignore must ignore .halo/ for dogfood",
+                        "item": "factory .gitignore must ignore .halo/ for self-instance",
                     }
                 )
         except (subprocess.CalledProcessError, OSError, FileNotFoundError):
@@ -375,11 +375,11 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
         # D078: stale watchdog heartbeat while autonomous+active loop
         if loop_active:
             issues.extend(_stale_watchdog_issues(repo))
-        # D108: dogfood autonomous should accumulate cycle scores over time
-        dogfood = bool(
+        # D108: compounding self-instance should accumulate cycle scores over time
+        compounding = bool(
             state.get("dogfood") or state.get("dogfood_mode") == "compounding"
         )
-        if dogfood and loop_active:
+        if compounding and loop_active:
             scores = repo / ".halo" / "scores"
             n = len(list(scores.glob("S*.json"))) if scores.is_dir() else 0
             if n == 0:
@@ -387,10 +387,10 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                     {
                         "level": "warn",
                         "code": "scores_empty",
-                        "item": "dogfood autonomous with empty .halo/scores — land a pass to write S###",
+                        "item": "compounding self-instance with empty .halo/scores — land a pass to write S###",
                     }
                 )
-            # D114: dogfood autonomous should accumulate golden trajectories
+            # D114: compounding self-instance should accumulate golden trajectories
             traj = repo / ".halo" / "trajectories"
             tn = len(list(traj.glob("GT-*.json"))) if traj.is_dir() else 0
             if tn == 0:
@@ -398,7 +398,7 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                     {
                         "level": "warn",
                         "code": "trajectories_empty",
-                        "item": "dogfood autonomous with empty .halo/trajectories — land a trajectory GT-###",
+                        "item": "compounding self-instance with empty .halo/trajectories — land a trajectory GT-###",
                     }
                 )
             # D117: scores and trajectories should stay in step (skip both-zero)
@@ -408,7 +408,7 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                         "level": "warn",
                         "code": "scores_trajectories_diverge",
                         "item": (
-                            f"dogfood autonomous scores_count={n} "
+                            f"compounding self-instance scores_count={n} "
                             f"trajectories_count={tn} — keep in step"
                         ),
                     }

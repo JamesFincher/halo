@@ -1,9 +1,9 @@
 # CLAUDE.md → Halo
 
-This product is operated by **Halo**. Read `AGENTS.md` in this directory and the factory repo's `AGENTS.md` / `README.md` (instantiation playbook).
+This product is operated by **Halo**. Read `AGENTS.md` and the factory `README.md` / `AGENTS.md`.
 
 If `.halo/state.json` has `autonomous: true` or `.halo/loop.json` is active, load skill **halo-go** and continue without asking.
 
 Machine done-tracking: `.halo/feature-list.json`  
-Progress: `.halo/progress.md` / `progress.jsonl`  
+Progress: `.halo/progress.md` / `.halo/progress.jsonl`  
 Next inject: `.halo/NEXT_PROMPT.md`

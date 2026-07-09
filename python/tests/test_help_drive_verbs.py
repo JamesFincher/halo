@@ -20,7 +20,7 @@ class TestHelpDriveVerbs(unittest.TestCase):
             timeout=15,
         )
         out = r.stdout + r.stderr
-        for verb in ("plan", "watchdog", "cycle-smoke", "dogfood-reinstantiate"):
+        for verb in ("plan", "watchdog", "cycle-smoke", "reinstantiate"):
             self.assertIn(verb, out, f"missing {verb}")
 
 

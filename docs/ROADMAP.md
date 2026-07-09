@@ -11,61 +11,61 @@
 
 ## Slice 1 — Readiness automation ✅
 
-- [x] `halo_catalog.py` lifecycle baseline + intake merge
-- [x] `halo_readiness.py` CLI/env checks (never log secrets)
+- [x] `halo_catalog.py` lifecycle baseline
+- [x] `halo_readiness.py` CLI/env checks
 - [x] GO / NO_GO / DEGRADED + `--allow-degraded`
-- [x] Writes readiness.json, READINESS.md, .env.example, baton
+- [x] `readiness.json`, `READINESS.md`, `.env.example`
 - [x] `lock-specs` state command
 
-## Slice 2 — Scaffold + Demo 0 + full workflows ✅
+## Slice 2 — Scaffold + Demo 0 + workflows ✅
 
-- [x] `docs/WORKFLOWS.md` — all human/agent paths
-- [x] `scripts/halo` CLI (init/status/specs/lock/ready/scaffold/…)
-- [x] nextjs-saas + fastapi + existing scaffolders
-- [x] Demo 0 local + live probe gate
-- [x] Milestone prompt generation + index.json
+- [x] `docs/WORKFLOWS.md`
+- [x] `scripts/halo` CLI
+- [x] nextjs-saas / fastapi / existing scaffolders
+- [x] Demo 0 local + probe gate
+- [x] Milestone prompts + `index.json`
 - [x] Control skills: pause, escalate, handoff, revise, doctor, triage, deploy, verify, build
 
 ## Slice 2.5 — Safety beams ✅
 
-- [x] Phase transition graph (halo_phases + state gate)
+- [x] Phase transition graph
 - [x] Evidence cert validator
-- [x] halo doctor --strict
-- [x] halo-go autonomous
+- [x] `halo doctor --strict`
+- [x] `halo-go` autonomous
 
-## Slice 2.6 — Peer-harness gap close ✅
+## Slice 2.6 — Peer gap close ✅
 
-- [x] `docs/GAPS.md` register vs Anthropic / Ralph / open-ralph / grok-halo
-- [x] `feature-list.json` machine done-tracking (`halo_features.py`)
-- [x] `progress.jsonl` / `progress.md` cold-session log
-- [x] Struggle detection + false completion-promise reject on Stop
-- [x] Test ratchet doctrine + build skill
+- [x] `docs/GAPS.md`
+- [x] `feature-list.json` + `halo_features.py`
+- [x] `progress.jsonl` / `progress.md`
+- [x] Struggle detection + false completion promise reject
+- [x] Test ratchet
 - [x] Single-runner lock helper
-- [x] Engineered NEXT_PROMPT includes feature list + progress + boot ritual
+- [x] Engineered `NEXT_PROMPT`
 
-## Slice 3 — Build loop
+## Slice 3 — Build loop ✅
 
-- [x] `halo-build` / `halo-verify` / `halo-deploy` skill contracts
-- [x] Self-authored NEXT_PROMPT from live state (engineered)
-- [x] Evidence-gated feature pass + honest completion promise
-- [x] Hard budget (iter/daily/wall) + test ratchet mechanical
-- [x] `halo go` arms true Stop loop (`loop.json`)
-- [x] Dogfood-safe: factory never publishes `.halo/` self-instance state
-- [x] Arena dual-lens verify (`halo_arena.py` / `halo arena`)
-- [x] Safe auto-commit per unit (`halo_commit.py` / `halo commit-unit`)
+- [x] `halo-build` / `halo-verify` / `halo-deploy` skills
+- [x] Engineered `NEXT_PROMPT` from live state
+- [x] Evidence-gated feature pass
+- [x] Hard budget + test ratchet
+- [x] `halo go` arms Stop loop
+- [x] Dogfood-safe `.gitignore`
+- [x] Arena dual-lens verify
+- [x] Safe auto-commit per unit
 
 ## Slice 4 — Walk-away runner
 
-- [x] `scripts/halo` surface (status/stop/resume/…)
-- [x] Runner lock helper (`.halo/runner.lock`)
-- [x] Daily/iter/wall budget hard stop (`halo_budget.py`)
-- [x] CI smoke workflow (`.github/workflows/halo-smoke.yml`)
-- [ ] Human dashboard notes / voice optional
+- [x] `scripts/halo` surface
+- [x] Runner lock helper
+- [x] Daily/iter/wall budget hard stop
+- [x] CI smoke workflow
+- [ ] Human dashboard / voice (optional)
 
-## Non-goals near-term
+## Non-goals
 
 - Multi-agent cloud fleet
 - Non-Grok plugin manifests
 - Auto production promote
 
-See **docs/GAPS.md** for full severity table.
+See `docs/GAPS.md` for severity table.

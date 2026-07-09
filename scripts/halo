@@ -55,13 +55,12 @@ halo — autonomous product development system
                            dual-lens verify (A adversarial + B constructive);
                            optional --spawn-check writes second-pass cert
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
-                           safe auto-commit (never force-adds dogfood .halo/)
+                           safe auto-commit (never force-adds .halo/)
   drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
   plan [path]              Refresh NEXT_PROMPT via background planner (no wait)
   watchdog [path] [secs]   Planner+spawn loop (default 15s; better than /loop 60s)
-  cycle-smoke [path]       Factory dogfood smoke (compile+doctor+hygiene)
-  dogfood-reinstantiate [path]
-                           Reset Halo-on-Halo control plane + compounding backlog
+  cycle-smoke [path]       Factory smoke test (compile+doctor+hygiene)
+  reinstantiate [path]     Reset local control plane + compounding backlog
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
   stories-sync [path]       Sync STORIES.md from feature-list passes
@@ -173,7 +172,7 @@ print(f"auto:     {s.get('autonomous')}")
 print(f"loop:     active={loop.get('active')} iter={loop.get('iteration')}/{loop.get('max_iterations')}")
 print(f"spec:     {s.get('spec_status')}")
 print(f"ready:    {s.get('readiness_verdict') or r.get('verdict')}")
-print(f"dogfood:  {s.get('dogfood_mode') or s.get('dogfood')}")
+print(f"mode:     {s.get('dogfood_mode') or s.get('dogfood')}")
 print(f"story:    {s.get('current_story')}")
 print(f"demo:     {s.get('last_demo_url')}")
 print(f"profile:  {s.get('scaffold_profile')}")
@@ -355,25 +354,11 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     ;;
 
   escalate)
+    # D156: JSON packet/stdout includes latest_score_id + latest_trajectory_id
     path="$(repo_arg "${1:-.}")"
     reason="${2:-unspecified failure}"
-    mkdir -p "$path/.halo/escalations"
-    ts="$("$PY" -c 'import time; print(int(time.time()))')"
-    f="$path/.halo/escalations/esc-${ts}.md"
-    {
-      echo "# Escalation"
-      echo
-      echo "- When: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      echo "- Reason: $reason"
-      echo
-      echo "## State"
-      cat "$path/.halo/state.json" 2>/dev/null || true
-      echo
-      echo "## Baton"
-      cat "$path/.halo/baton.md" 2>/dev/null || true
-    } > "$f"
-    "$PY" "$HALO_SYSTEM/python/halo_state.py" set --repo "$path" --status ESCALATED
-    echo "escalated → $f"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_escalate.py" --repo "$path" --reason "$reason"
     ;;
 
   triage)
@@ -735,7 +720,7 @@ PY
     exec bash "$HALO_SYSTEM/scripts/halo-watchdog.sh" "$path" "$secs"
     ;;
 
-  dogfood-reinstantiate)
+  reinstantiate|dogfood-reinstantiate)
     path="$(repo_arg "${1:-.}")"
     export HALO_SYSTEM
     bash "$HALO_SYSTEM/scripts/halo-dogfood-reinstantiate.sh" "$path"
