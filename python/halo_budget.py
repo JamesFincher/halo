@@ -158,6 +158,31 @@ def halt(repo: Path, reason: str) -> None:
     _save(p, keep)
 
 
+def show_score_fields(repo: Path) -> dict[str, Any]:
+    """D141: scores/trajectories counts + match for budget show JSON."""
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(repo, compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
+        return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
+        }
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_budget")
     p.add_argument("--repo", default=".")
@@ -187,12 +212,14 @@ def main() -> None:
         return
     if args.cmd == "show":
         # D097: spend + max_iterations always co-present for operators
+        # D141: scores/trajectories counts + match for operators
         b = load_budget(repo)
         out = {
             "budget": b,
             "spend": _json(repo / ".halo" / "spend.json") or {},
             "loop": _json(repo / ".halo" / "loop.json") or {},
             "max_iterations": b.get("max_iterations"),
+            **show_score_fields(repo),
         }
         print(json.dumps(out, indent=2))
         raise SystemExit(0)
