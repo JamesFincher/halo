@@ -456,7 +456,11 @@ def network_ok() -> bool:
 
 
 def report_score_fields(repo: Path) -> dict[str, Any]:
-    """D145–D146: scores/trajectories counts + match + latest ids on doctor JSON."""
+    """Doctor JSON score culture for operators + inject.
+
+    D145: scores_count / trajectories_count / scores_trajectories_match
+    D146: latest_score_id / latest_trajectory_id (null when empty/missing)
+    """
     try:
         from halo_features import summary as feature_summary
 
@@ -467,6 +471,7 @@ def report_score_fields(repo: Path) -> dict[str, Any]:
             match = bool(fs.get("scores_trajectories_match"))
         else:
             match = sc == tc
+        # D146: latest ids explicitly surfaced (null when dirs empty/missing)
         return {
             "scores_count": sc,
             "trajectories_count": tc,
@@ -502,8 +507,7 @@ def main() -> None:
         issues.append({"level": "warn", "code": "network", "item": "example.com unreachable"})
 
     errors = [i for i in issues if i["level"] == "error"]
-    # D145: scores_count / trajectories_count / scores_trajectories_match on doctor JSON
-    # D146: latest_score_id / latest_trajectory_id (null when empty/missing)
+    # D145–D146: merge report_score_fields (counts+match + latest ids) into doctor report
     report = {
         "ok": len(errors) == 0,
         "halo_system": str(halo_sys),
