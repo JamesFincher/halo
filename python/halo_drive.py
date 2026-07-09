@@ -389,7 +389,7 @@ def main() -> None:
 
             fs = feature_summary(repo, compound=False)
             next_feat = fs.get("next")
-            # D135: surface score/trajectory health on features object
+            # D135/D136: surface score/trajectory health + latest ids on features object
             sc = int(fs.get("scores_count") or 0)
             tc = int(fs.get("trajectories_count") or 0)
             if "scores_trajectories_match" in fs:
@@ -405,6 +405,8 @@ def main() -> None:
                 "scores_count": sc,
                 "trajectories_count": tc,
                 "scores_trajectories_match": match,
+                "latest_score_id": fs.get("latest_score_id"),
+                "latest_trajectory_id": fs.get("latest_trajectory_id"),
             }
         except Exception as e:  # noqa: BLE001
             feat_summary = {"error": str(e)}

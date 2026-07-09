@@ -627,6 +627,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool when summary available",
         ],
     ),
+    # Batch 27+ — drive latest ids + go plan health + cycle-smoke score surface
+    (
+        "drive status JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "drive status features object has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo go --plan JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "go --plan top-level has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool when summary available",
+        ],
+    ),
+    (
+        "cycle-smoke evidence includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "D-cycle-smoke-latest.json has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool",
+        ],
+    ),
 ]
 
 
