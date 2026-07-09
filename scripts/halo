@@ -355,10 +355,42 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
   handoff)
     path="$(repo_arg "${1:-.}")"
     out="$path/.halo/handoff.md"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    # D102: phase + next feature (or all_pass) at top for cold agents
+    phase_next="$($PY - <<PY
+import json
+from pathlib import Path
+p = Path("$path")
+st = {}
+try:
+    st = json.loads((p/".halo"/"state.json").read_text())
+except Exception:
+    pass
+phase = st.get("phase") or "?"
+nxt = "all_pass"
+try:
+    from halo_features import summary as feature_summary
+    fs = feature_summary(p, compound=False)
+    n = fs.get("next")
+    if isinstance(n, dict) and n.get("id"):
+        nxt = f"{n.get('id')} requires_code={n.get('requires_code')}"
+    elif fs.get("all_pass"):
+        nxt = "all_pass"
+    else:
+        nxt = "none"
+except Exception as e:
+    nxt = f"(summary error: {e})"
+print(f"phase={phase}")
+print(f"next_feature={nxt}")
+PY
+)"
     {
       echo "# Halo handoff"
       echo
       echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo
+      echo "## Snapshot"
+      echo "$phase_next" | sed 's/^/- /'
       echo
       echo "## Continue"
       echo "1. Read AGENTS.md and .halo/baton.md"

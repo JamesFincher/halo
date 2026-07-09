@@ -126,11 +126,15 @@ def write_plan(repo: Path, plan: dict[str, Any]) -> Path:
     path = repo / ".halo" / "plan-latest.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
-    # baton pointer
+    # baton pointer (D100: always rewrite recommendation + next id; dash when all_pass)
     baton = repo / ".halo" / "baton.md"
-    nxt = (plan.get("features") or {}).get("next") or {}
-    nid = nxt.get("id") if isinstance(nxt, dict) else "-"
-    desc = (nxt.get("description") if isinstance(nxt, dict) else "") or ""
+    nxt = (plan.get("features") or {}).get("next")
+    if isinstance(nxt, dict) and nxt.get("id"):
+        nid = str(nxt.get("id"))
+        desc = str(nxt.get("description") or "")
+    else:
+        nid = "-"
+        desc = "all_pass" if (plan.get("features") or {}).get("all_pass") else ""
     baton.write_text(
         "# Baton — planner refresh\n"
         f"- at: {plan.get('at')}\n"
