@@ -933,14 +933,17 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     passed = sum(1 for f in feats if f.get("passes"))
     pending = [f for f in feats if not f.get("passes")]
     nxt = _summary_next(pending[0]) if pending else None
+    scores_count = _scores_count(repo)
+    trajectories_count = _trajectories_count(repo)
     return {
         "total": total,
         "passed": passed,
         "remaining": total - passed,
         "all_pass": total > 0 and passed == total,
         "next": nxt,
-        "scores_count": _scores_count(repo),
-        "trajectories_count": _trajectories_count(repo),
+        "scores_count": scores_count,
+        "trajectories_count": trajectories_count,
+        "scores_trajectories_match": scores_count == trajectories_count,
         "latest_score_id": _latest_score_id(repo),
         "latest_trajectory_id": _latest_trajectory_id(repo),
         "features": feats,
