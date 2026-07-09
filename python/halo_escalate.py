@@ -3,6 +3,8 @@
 
 D156: stdout + packet JSON include latest_score_id and latest_trajectory_id
 (null when scores/trajectories dirs empty or missing).
+D164: scores_count / trajectories_count / scores_trajectories_match
+(true when equal, including both zero).
 """
 
 from __future__ import annotations
@@ -20,17 +22,33 @@ def utc_now() -> str:
 
 
 def escalate_score_fields(repo: Path) -> dict[str, Any]:
-    """D156: latest_score_id / latest_trajectory_id (null when empty/missing)."""
+    """Score culture fields for escalate packet/stdout/state.
+
+    D156: latest_score_id / latest_trajectory_id (null when empty/missing)
+    D164: scores_count / trajectories_count / scores_trajectories_match
+    """
     try:
         from halo_features import summary as feature_summary
 
         fs = feature_summary(repo, compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
         return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
             "latest_score_id": fs.get("latest_score_id"),
             "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
             "latest_score_id": None,
             "latest_trajectory_id": None,
         }
@@ -73,6 +91,9 @@ def escalate(repo: Path, reason: str = "unspecified failure") -> dict[str, Any]:
         f"# Escalation\n\n"
         f"- When: {when}\n"
         f"- Reason: {reason}\n"
+        f"- scores_count: {score_fields.get('scores_count')}\n"
+        f"- trajectories_count: {score_fields.get('trajectories_count')}\n"
+        f"- scores_trajectories_match: {score_fields.get('scores_trajectories_match')}\n"
         f"- latest_score_id: {score_fields.get('latest_score_id')}\n"
         f"- latest_trajectory_id: {score_fields.get('latest_trajectory_id')}\n"
         f"\n## State\n"

@@ -56,7 +56,7 @@ halo — autonomous product development system
                            optional --spawn-check writes second-pass cert
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds .halo/)
-  drive [path] …           spawn|status|scheduler-prompt (Grok continuous drive)
+  drive [path] …           spawn|status|should-drive (Grok continuous drive)
   plan [path]              Refresh NEXT_PROMPT via background planner (no wait)
   watchdog [path] [secs]   Planner+spawn loop (default 15s; better than /loop 60s)
   cycle-smoke [path]       Factory smoke test (compile+doctor+hygiene)
@@ -354,7 +354,7 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     ;;
 
   escalate)
-    # D156: JSON packet/stdout includes latest_score_id + latest_trajectory_id
+    # D156/D164: JSON includes latest ids + scores_count/trajectories_count/match
     path="$(repo_arg "${1:-.}")"
     reason="${2:-unspecified failure}"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
