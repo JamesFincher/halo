@@ -605,6 +605,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match true/false",
         ],
     ),
+    # Batch 26+ — latest ids in handoff/progress + drive status health
+    (
+        "halo handoff writes latest_score_id and latest_trajectory_id",
+        [
+            "handoff.md includes latest_score_id and latest_trajectory_id",
+            "dash when missing/empty",
+        ],
+    ),
+    (
+        "progress unit event auto-records latest_score_id and latest_trajectory_id",
+        [
+            "progress.jsonl unit events include latest_score_id and latest_trajectory_id",
+            "null when dirs empty/missing",
+        ],
+    ),
+    (
+        "drive status JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "drive status features object has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool when summary available",
+        ],
+    ),
 ]
 
 

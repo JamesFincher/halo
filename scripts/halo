@@ -417,13 +417,20 @@ try:
     sc = int(fs.get("scores_count") or 0)
     tc = int(fs.get("trajectories_count") or 0)
     match = bool(fs.get("scores_trajectories_match", sc == tc))
+    # D133: latest score/trajectory ids (dash when missing/empty)
+    lsid = fs.get("latest_score_id") or "-"
+    ltid = fs.get("latest_trajectory_id") or "-"
 except Exception as e:
     nxt = f"(summary error: {e})"
+    lsid = "-"
+    ltid = "-"
 print(f"phase={phase}")
 print(f"next_feature={nxt}")
 print(f"scores_count: {sc}")
 print(f"trajectories_count: {tc}")
 print(f"scores_trajectories_match: {'true' if match else 'false'}")
+print(f"latest_score_id: {lsid}")
+print(f"latest_trajectory_id: {ltid}")
 PY
 )"
     {
