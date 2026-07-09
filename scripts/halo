@@ -655,7 +655,8 @@ PY
     path="$(repo_arg "$path")"
     [[ -n "$fid" ]] || die "arena requires --id Sxxx"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
-    "$PY" "$HALO_SYSTEM/python/halo_arena.py" --repo "$path" verify --id "$fid" "${spawn_check[@]}"
+    # set -u: empty array expand is unbound on bash 3.2 / some 5.x without +
+    "$PY" "$HALO_SYSTEM/python/halo_arena.py" --repo "$path" verify --id "$fid" ${spawn_check[@]+"${spawn_check[@]}"}
     ;;
 
   commit-unit)
