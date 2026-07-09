@@ -26,6 +26,13 @@
 - [x] Milestone prompt generation + index.json
 - [x] Control skills: pause, escalate, handoff, revise, doctor, triage, deploy, verify, build
 
+## Slice 2.5 — Safety beams ✅
+
+- [x] Phase transition graph (halo_phases + state gate)
+- [x] Evidence cert validator
+- [x] halo doctor --strict
+- [x] halo-go autonomous
+
 ## Slice 3 — Build loop
 
 - [x] `halo-build` / `halo-verify` / `halo-deploy` skill contracts

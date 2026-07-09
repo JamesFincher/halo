@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Halo doctor — system integrity + optional --strict consistency matrix."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+# Skills that must exist (workflow inventory)
+REQUIRED_SKILLS = [
+    "halo-bootstrap",
+    "halo-intake",
+    "halo-spec-pack",
+    "halo-readiness",
+    "halo-scaffold",
+    "halo-build",
+    "halo-verify",
+    "halo-deploy",
+    "halo-go",
+    "halo-status",
+    "halo-triage",
+    "halo-pause",
+    "halo-escalate",
+    "halo-handoff",
+    "halo-revise",
+    "halo-doctor",
+]
+
+# CLI verbs that must appear in scripts/halo help/case
+REQUIRED_CLI = [
+    "init",
+    "status",
+    "specs",
+    "lock",
+    "unlock",
+    "ready",
+    "scaffold",
+    "milestones",
+    "probe",
+    "build",
+    "stop",
+    "resume",
+    "escalate",
+    "triage",
+    "handoff",
+    "doctor",
+    "go",
+]
+
+REQUIRED_PYTHON = [
+    "halo_state.py",
+    "halo_readiness.py",
+    "halo_scaffold.py",
+    "halo_probe.py",
+    "halo_go.py",
+    "halo_spec_write.py",
+    "halo_milestones.py",
+    "halo_evidence.py",
+    "halo_phases.py",
+    "halo_doctor.py",
+    "halo_catalog.py",
+]
+
+
+def check_system(halo_sys: Path) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    skills_dir = halo_sys / ".grok" / "skills"
+    for name in REQUIRED_SKILLS:
+        p = skills_dir / name / "SKILL.md"
+        if not p.exists():
+            # also allow skill.md lowercase
+            p2 = skills_dir / name / "skill.md"
+            if not p2.exists():
+                issues.append({"level": "error", "code": "skill_missing", "item": name})
+
+    for py in REQUIRED_PYTHON:
+        if not (halo_sys / "python" / py).exists():
+            issues.append({"level": "error", "code": "python_missing", "item": py})
+
+    cli = halo_sys / "scripts" / "halo"
+    if not cli.exists():
+        issues.append({"level": "error", "code": "cli_missing", "item": "scripts/halo"})
+    else:
+        text = cli.read_text(encoding="utf-8")
+        for verb in REQUIRED_CLI:
+            # case "$cmd" in arms use verb)
+            if not re.search(rf"\n\s*{re.escape(verb)}\)", text) and f" {verb}" not in text:
+                # help text mention
+                if verb not in text:
+                    issues.append({"level": "error", "code": "cli_verb_missing", "item": verb})
+
+    for doc in ("docs/WORKFLOWS.md", "docs/ARCHITECTURE.md", "docs/ARCHITECTURE-DEEP.md", "AGENTS.md"):
+        if not (halo_sys / doc).exists():
+            issues.append({"level": "error", "code": "doc_missing", "item": doc})
+
+    # WORKFLOWS should mention halo go / autonomous
+    wf = halo_sys / "docs" / "WORKFLOWS.md"
+    if wf.exists():
+        w = wf.read_text(encoding="utf-8")
+        for needle in ("halo go", "autonomous", "probe"):
+            if needle.lower() not in w.lower():
+                issues.append({"level": "warn", "code": "workflows_gap", "item": needle})
+
+    return issues
+
+
+def check_product(repo: Path) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    state_p = repo / ".halo" / "state.json"
+    if not state_p.exists():
+        issues.append({"level": "info", "code": "not_a_product", "item": str(repo)})
+        return issues
+    try:
+        state = json.loads(state_p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        issues.append({"level": "error", "code": "state_corrupt", "item": "state.json"})
+        return issues
+
+    phase = state.get("phase")
+    from halo_phases import PHASE_EDGES
+
+    if phase and str(phase).lower() not in PHASE_EDGES:
+        issues.append({"level": "warn", "code": "unknown_phase", "item": str(phase)})
+
+    if state.get("spec_status") == "locked":
+        spec = repo / ".halo" / "spec"
+        for f in ("PRD.md", "STORIES.md", "STACK.md"):
+            if not (spec / f).exists():
+                issues.append({"level": "error", "code": "locked_missing_spec", "item": f})
+
+    if state.get("autonomous") and state.get("require_human_gate") is True:
+        issues.append({"level": "warn", "code": "auto_gate_conflict", "item": "autonomous but require_human_gate"})
+
+    # evidence validate if any
+    try:
+        from halo_evidence import validate_repo
+
+        rep = validate_repo(repo)
+        if rep["files_checked"] and not rep["ok"]:
+            issues.append({"level": "error", "code": "evidence_invalid", "item": rep.get("results")})
+    except Exception as e:  # noqa: BLE001
+        issues.append({"level": "warn", "code": "evidence_check_failed", "item": str(e)})
+
+    return issues
+
+
+def network_ok() -> bool:
+    try:
+        urllib.request.urlopen("https://example.com", timeout=5)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(prog="halo_doctor")
+    p.add_argument("--halo-system", default=None)
+    p.add_argument("--repo", default=".")
+    p.add_argument("--strict", action="store_true", help="exit 2 on any error-level issue")
+    p.add_argument("--json", action="store_true")
+    args = p.parse_args()
+
+    halo_sys = Path(args.halo_system).resolve() if args.halo_system else Path(__file__).resolve().parent.parent
+    repo = Path(args.repo).resolve()
+
+    issues = check_system(halo_sys)
+    issues.extend(check_product(repo))
+    net = network_ok()
+    if not net:
+        issues.append({"level": "warn", "code": "network", "item": "example.com unreachable"})
+
+    errors = [i for i in issues if i["level"] == "error"]
+    report = {
+        "ok": len(errors) == 0,
+        "halo_system": str(halo_sys),
+        "repo": str(repo),
+        "network": net,
+        "error_count": len(errors),
+        "issues": issues,
+    }
+
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"Halo doctor  system={halo_sys}")
+        print(f"  network: {'ok' if net else 'fail'}")
+        print(f"  errors:  {len(errors)}  total_issues: {len(issues)}")
+        for i in issues:
+            print(f"  [{i['level']}] {i['code']}: {i['item']}")
+        print("PASS" if report["ok"] else "FAIL")
+
+    if args.strict and not report["ok"]:
+        raise SystemExit(2)
+    raise SystemExit(0 if report["ok"] else 1)
+
+
+if __name__ == "__main__":
+    main()

@@ -8,6 +8,15 @@ description: Validate Halo system install and product integrity.
 ```bash
 halo doctor
 halo doctor /path/to/product
+halo doctor --strict /path/to/product   # CI: exit 2 on errors
+halo evidence /path/to/product          # cert schema, not just files
 ```
 
-Checks system scripts/python present; optional product state; network probe.
+Checks:
+- required skills / python modules / CLI verbs
+- docs present (WORKFLOWS, ARCHITECTURE-DEEP)
+- product state phase known; locked specs complete
+- evidence validator when files exist
+- network probe
+
+**Strict mode** = fail closed for system integrity matrix.

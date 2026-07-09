@@ -328,6 +328,11 @@ Do not collapse all failures into “try again.” Different classes need differ
 - Live HTTP probe  
 - CLI surface for major verbs  
 - Workflow map document  
+- **Phase transition graph** (`halo_phases.py` + state set gate)  
+- **Evidence cert validator** (`halo_evidence.py`)  
+- **`halo doctor --strict`** consistency matrix  
+- **`halo-go` autonomous mode**  
+- `halo_system_version` on init  
 
 ### Soft (L3 skill / agent discipline)
 
@@ -340,12 +345,10 @@ Do not collapse all failures into “try again.” Different classes need differ
 
 ### Missing / thin (known)
 
-- Enforced phase transition graph in code (any script can set phase)  
-- Evidence schema validation (file exists ≠ cert valid)  
 - Story backlog machine object (still mostly STORIES.md)  
 - Concurrent agent lock  
-- Halo versioning compatibility with in-flight products  
-- Automated WORKFLOWS↔skills↔CLI consistency check (`halo doctor --strict`)  
+- Full multi-cycle runner daemon  
+- Design-system full port
 
 ---
 
