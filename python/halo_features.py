@@ -811,8 +811,8 @@ def maybe_seed_compounding_batch(
 ) -> dict[str, Any]:
     """Alias for maybe_compound_seed with stable keys for tests/CLI (D030).
 
-    Returns {seeded, added, reason, date?} plus D153 score surface
-    (latest_score_id / latest_trajectory_id + counts/match via pass_score_fields).
+    Returns {seeded, added, reason, date?} plus score surface via pass_score_fields:
+    D154 counts/match + D153 latest_score_id / latest_trajectory_id.
     Seed never allocates score stubs — pure read of .halo/scores|trajectories.
     """
     repo = Path(repo).resolve()
@@ -838,7 +838,7 @@ def maybe_seed_compounding_batch(
             "added": [],
             "reason": reason_map.get(raw, raw),
         }
-    # D153: merge latest ids (+ counts/match) into seed CLI/library JSON
+    # D153–D154: merge latest ids + counts/match into seed CLI/library JSON
     return {**out, **pass_score_fields(repo)}
 
 
@@ -869,9 +869,10 @@ def _factory_diff_paths(repo: Path) -> list[str]:
 
 
 def pass_score_fields(repo: Path) -> dict[str, Any]:
-    """D147–D153: scores/trajectories surface on features pass/fail/seed stdout JSON.
+    """D147–D154: scores/trajectories surface on features pass/fail/seed stdout JSON.
 
-    Counts + match: D147 (pass) / D152 (fail). Latest ids: D148 (pass) / D149 (fail) / D153 (seed).
+    Counts + match: D147 (pass) / D152 (fail) / D154 (seed).
+    Latest ids: D148 (pass) / D149 (fail) / D153 (seed).
     Pass path may create on_feature_pass stubs first (counts rise);
     fail and seed never do — pure pre-op counts and null ids when dirs empty/missing.
     Not persisted into feature-list.json — stdout envelope only.
