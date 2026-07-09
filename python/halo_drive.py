@@ -389,12 +389,22 @@ def main() -> None:
 
             fs = feature_summary(repo, compound=False)
             next_feat = fs.get("next")
+            # D135: surface score/trajectory health on features object
+            sc = int(fs.get("scores_count") or 0)
+            tc = int(fs.get("trajectories_count") or 0)
+            if "scores_trajectories_match" in fs:
+                match = bool(fs.get("scores_trajectories_match"))
+            else:
+                match = sc == tc
             feat_summary = {
                 "passed": fs.get("passed"),
                 "total": fs.get("total"),
                 "remaining": fs.get("remaining"),
                 "all_pass": fs.get("all_pass"),
                 "next_id": (next_feat or {}).get("id") if isinstance(next_feat, dict) else None,
+                "scores_count": sc,
+                "trajectories_count": tc,
+                "scores_trajectories_match": match,
             }
         except Exception as e:  # noqa: BLE001
             feat_summary = {"error": str(e)}
