@@ -186,7 +186,7 @@ def append_features(repo: Path, features: list[dict[str, Any]]) -> dict[str, Any
         }
         if f.get("milestone"):
             row["milestone"] = f["milestone"]
-        # Preserve dogfood compounding flags (FILE_DIFF gate)
+        # Preserve compounding flags (FILE_DIFF gate)
         if "requires_code" in f:
             row["requires_code"] = bool(f.get("requires_code"))
         data.setdefault("features", []).append(row)
@@ -231,7 +231,7 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ["stop-last.json written on Stop", "includes iteration + spawn ok/error"],
     ),
     (
-        "Dogfood feature pass requires factory FILE_DIFF unless requires_code false",
+        "Compounding feature pass requires factory FILE_DIFF unless requires_code false",
         ["set_pass refuses code units with empty factory git diff", "--force still works"],
     ),
     (
@@ -331,7 +331,7 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ["document version in plugin.json matches CHANGELOG or TRUE-LOOP note", "minor bump for this release"],
     ),
     (
-        "scripts/halo help lists plan watchdog cycle-smoke dogfood-reinstantiate",
+        "scripts/halo help lists plan watchdog cycle-smoke reinstantiate",
         ["help text contains all continuous-drive verbs", "regression test on help string"],
     ),
     (
@@ -348,7 +348,7 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
     ),
     (
         "drive should-drive exits 0 only when loop active and work remains",
-        ['exit 1 when all_pass and not dogfood seed pending', 'exit 0 with open backlog'],
+        ['exit 1 when all_pass and not compounding seed pending', 'exit 0 with open backlog'],
     ),
     (
         "NEXT_PROMPT includes roadmap_exhausted flag when true",
@@ -406,11 +406,11 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "Dogfood approved cycle writes .halo/scores/SNNN.json six-dimension stub",
+        "Compounding approved cycle writes .halo/scores/SNNN.json six-dimension stub",
         ['score file has tool_selection and warm_start_directive fields', 'id matches cycle or sequential S###'],
     ),
     (
-        "Dogfood approved cycle records golden trajectory GT stub",
+        "Compounding approved cycle records golden trajectory GT stub",
         ['writes .halo/trajectories/GT-NNN.json with step sequence', 'includes git head and feature id'],
     ),
     (
@@ -418,15 +418,15 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ['set_pass updates loop.last_head to current HEAD when loop active', 'missing loop.json is non-fatal'],
     ),
     (
-        "halo plan surfaces scores_missing warn when scores dir empty under dogfood",
-        ['plan-latest.json has scores_count int', 'recommendation mentions scores when count 0 and dogfood'],
+        "halo plan surfaces scores_missing warn when scores dir empty under compounding",
+        ['plan-latest.json has scores_count int', 'recommendation mentions scores when count 0 and compounding'],
     ),
     (
         "progress unit event includes feature_id when provided",
         ['progress add --event unit --json with feature_id persists field', 'optional field'],
     ),
     (
-        "doctor warns when dogfood autonomous and scores directory empty",
+        "doctor warns when compounding self-instance and scores directory empty",
         ['level warn code scores_empty', 'not an error so strict still passes'],
     ),
     # Batch 18+ — compound after D108 / scores culture
@@ -467,7 +467,7 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "doctor warns when dogfood autonomous and trajectories directory empty",
+        "doctor warns when compounding self-instance and trajectories directory empty",
         [
             "level warn code trajectories_empty",
             "not an error so strict still passes",
@@ -489,7 +489,7 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "doctor warns when dogfood autonomous and scores_count differs from trajectories_count",
+        "doctor warns when compounding self-instance and scores_count differs from trajectories_count",
         [
             "level warn code scores_trajectories_diverge when counts unequal",
             "not an error so strict still passes; skip when both zero",
@@ -577,10 +577,10 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         ],
     ),
     (
-        "planner recommendation warns when scores_trajectories_match is false under dogfood",
+        "planner recommendation warns when scores_trajectories_match is false under compounding",
         [
             "recommendation mentions scores_trajectories_diverge when counts unequal",
-            "skip when match true or not dogfood",
+            "skip when match true or not compounding",
         ],
     ),
     # Batch 25+ — latest ids in prompt + match in progress + handoff health
@@ -960,7 +960,7 @@ def set_pass(
         stories_sync(repo)
     except Exception:  # noqa: BLE001
         pass
-    # Dogfood compounding: never idle on all_pass — seed next batch once/day
+    # Compounding: never idle on all_pass — seed next batch once/day
     if passes:
         try:
             maybe_compound_seed(repo)
@@ -981,7 +981,11 @@ def _next_d_id(existing_ids: set[str]) -> str:
 
 
 def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
-    """When dogfood compounding + all_pass, append 3 new D-features once per UTC day (D030)."""
+    """When compounding mode + all_pass, append 3 new D-features once per UTC day (D030).
+
+    On successful seed write, compound-seed.json records latest_score_id and
+    latest_trajectory_id (D155); null when scores/trajectories empty or missing.
+    """
     repo = Path(repo).resolve()
     state = _load_state(repo)
     data = load_list(repo)
@@ -1063,12 +1067,15 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
     data["dogfood_mode"] = data.get("dogfood_mode") or "compounding"
     save_list(repo, data)
 
+    # D155: persist latest score/trajectory ids at seed write (null when empty/missing)
     seed_meta = {
         "last_seed_day": today,
         "batch": batch_n,
         "seeded_ids": [f["id"] for f in new_feats],
         "at": utc_now(),
         "last_reason": "seeded",
+        "latest_score_id": _latest_score_id(repo),
+        "latest_trajectory_id": _latest_trajectory_id(repo),
     }
     seed_p.parent.mkdir(parents=True, exist_ok=True)
     seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")
@@ -1280,7 +1287,7 @@ def main() -> None:
 
     seed = sub.add_parser(
         "seed",
-        help="dogfood compounding: if all_pass, append next D-batch (once/UTC day)",
+        help="compounding: if all_pass, append next D-batch (once/UTC day)",
     )
     seed.add_argument("--repo", default=".")
     seed.add_argument("--force", action="store_true", help="allow same-day reseed")
