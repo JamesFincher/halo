@@ -819,10 +819,11 @@ def _factory_diff_paths(repo: Path) -> list[str]:
 
 
 def pass_score_fields(repo: Path) -> dict[str, Any]:
-    """D147–D148: scores/trajectories surface on features pass/fail stdout JSON.
+    """D147–D149: scores/trajectories surface on features pass/fail stdout JSON.
 
-    Counts + match (D147) and latest ids (D148) are read after mark
-    (post on_feature_pass stubs when passes=true).
+    Counts + match (D147) and latest ids (D148 pass / D149 fail) are read
+    after mark. Pass path may create on_feature_pass stubs first; fail path
+    never does — pure null when dirs empty/missing (D149 AC).
     Not persisted into feature-list.json — stdout envelope only.
     """
     sc = _scores_count(repo)
@@ -831,7 +832,7 @@ def pass_score_fields(repo: Path) -> dict[str, Any]:
         "scores_count": sc,
         "trajectories_count": tc,
         "scores_trajectories_match": sc == tc,
-        # D148: latest ids (null when empty/missing)
+        # D148–D149: latest ids (null when empty/missing)
         "latest_score_id": _latest_score_id(repo),
         "latest_trajectory_id": _latest_trajectory_id(repo),
     }
@@ -849,9 +850,9 @@ def set_pass(
     """Mark feature pass/fail. Pass requires evidence unless --force.
 
     requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
-    D147–D148: return value includes scores_count / trajectories_count /
+    D147–D149: return value includes scores_count / trajectories_count /
     scores_trajectories_match + latest_score_id / latest_trajectory_id
-    (post-mark) for operators + inject.
+    (post-mark) for both pass and fail CLI stdout (operators + inject).
     """
     repo = Path(repo)
     data = load_list(repo)
