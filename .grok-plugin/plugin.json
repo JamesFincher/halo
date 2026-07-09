@@ -1,7 +1,7 @@
 {
   "name": "halo",
   "description": "Halo continuous drive: headless chain + planner. /go /stop-loop. Grok Stop is passive.",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "keywords": [
     "halo",
     "autonomous",

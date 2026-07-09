@@ -179,3 +179,5 @@ When adding a phase or skill:
 ---
 
 **Version:** 1.0 · ties to Halo v0.4+
+
+<!-- plugin 0.8.1 continuous-drive surface: plan/watchdog/cycle-smoke -->
