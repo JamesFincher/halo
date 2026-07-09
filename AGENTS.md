@@ -47,10 +47,12 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 
 If human says **go** / **just build** / **don't ask** / **walk away**, OR `state.autonomous === true`:
 
-1. Load skill **`halo-go`** — standing authorization.
+1. Load skill **`halo-go`** — standing authorization + **self-prompt**.
 2. **Never** AskUserQuestion for optional decisions. Defaults win.
 3. Drive phase machine until hard stop (see skill).
-4. CLI: `halo go [path]` enable · `halo go --off` disable · `halo go --plan` next actions.
+4. After every unit: refresh `.halo/NEXT_PROMPT.md` (`halo continue`).
+5. When session must end with work left: headless re-entry via `halo continue --spawn` or `/goal` / `/loop` (see `docs/GROK-BUILD.md`).
+6. CLI: `halo go` · `halo continue` · `halo link-skills` · `halo go --off`.
 
 Hard stops still bind (denylist, probe, kill switch, 3 fails, prod). Autonomy ≠ skip evidence.
 

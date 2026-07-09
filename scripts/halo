@@ -41,8 +41,10 @@ halo — autonomous product development system
   handoff [path]           Context pack for human/other agent
   doctor [path] [--strict] Validate system + product (strict=CI fail)
   evidence [path]          Validate evidence certs (not just files)
-  go [path] [--off] [--max N]
+  go [path] [--off] [--max N] [--spawn]
                            AUTONOMOUS mode — build without asking
+  continue [path] [--spawn] Write NEXT_PROMPT; optional grok -p re-entry
+  link-skills [path]       Symlink Halo skills into product .grok/skills
   workflows                Show workflow map path
   help                     This help
 EOF
@@ -283,12 +285,14 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     path="."
     mode=enable
     max=5
+    spawn_flag=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --off|off|disable) mode=disable; shift ;;
         --status|status) mode=status; shift ;;
         --plan|plan) mode=plan; shift ;;
         --max) max="$2"; shift 2 ;;
+        --spawn) spawn_flag+=(--spawn); shift ;;
         *) path="$(repo_arg "$1")"; shift ;;
       esac
     done
@@ -298,9 +302,14 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     fi
     case "$mode" in
       enable)
-        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --enable --max-cycles "$max"
+        export HALO_SYSTEM
+        "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path" >/dev/null 2>&1 || true
+        "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --enable --max-cycles "$max" "${spawn_flag[@]+"${spawn_flag[@]}"}"
         echo ""
-        echo "AUTONOMOUS ON. Agent: load skill halo-go. Do not ask. Drive plan above."
+        echo "AUTONOMOUS ON + SELF-PROMPT. Skill: halo-go"
+        echo "NEXT_PROMPT: $path/.halo/NEXT_PROMPT.md"
+        echo "Continue later: $0 continue $path   |  spawn: $0 continue $path --spawn"
+        echo "Grok TUI: /goal (see docs/GROK-BUILD.md) or /loop 20m <NEXT_PROMPT body>"
         ;;
       disable)
         "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --disable
@@ -313,6 +322,33 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
         "$PY" "$HALO_SYSTEM/python/halo_go.py" --repo "$path" --plan
         ;;
     esac
+    ;;
+
+  continue)
+    path="."
+    do_spawn=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --spawn) do_spawn=1; shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export HALO_SYSTEM PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ "$do_spawn" -eq 1 ]]; then
+      "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --spawn
+    else
+      "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --write
+      echo "wrote $path/.halo/NEXT_PROMPT.md"
+      echo "spawn: $0 continue $path --spawn"
+      echo "or: grok -p --prompt-file $path/.halo/NEXT_PROMPT.md --cwd $path --yolo --max-turns 80"
+    fi
+    ;;
+
+  link-skills)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path"
     ;;
 
   evidence)

@@ -92,7 +92,17 @@ spec_review ← unlock-specs (from readiness/scaffold/build) if product pivot
 7. Stop only on hard stop; log decisions in `.halo/autonomous-log.md`  
 8. Human peeks demos async; no mid-flight questionnaires  
 
-**Commands:** `halo go` · agent skill `halo-go` · `halo go --off` to return interactive
+**Commands:** `halo go` · agent skill `halo-go` · `halo go --off` to return interactive  
+
+**Self-prompt (Grok Build):**
+
+| Mode | Mechanism |
+|------|-----------|
+| Inline | Agent continues phase driver same session (no "continue?") |
+| Headless | `.halo/NEXT_PROMPT.md` + `halo continue --spawn` → `grok -p --prompt-file … --yolo` |
+| Goal/Loop | `/goal <standing>` · `/loop 20m <read NEXT_PROMPT>` |
+
+See `docs/GROK-BUILD.md`. Skills linked via `halo link-skills`.
 
 ### H4 — Deep product owner
 

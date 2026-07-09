@@ -23,6 +23,7 @@ def load(repo: Path) -> dict[str, Any]:
 
 
 def save(repo: Path, data: dict[str, Any]) -> None:
+    """Public: used by halo_next_prompt and CLI."""
     data["updated_at"] = utc_now()
     (repo / ".halo" / "state.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
@@ -35,13 +36,16 @@ def log_line(repo: Path, msg: str) -> None:
         f.write(f"- [{utc_now()}] {msg}\n")
 
 
-def enable(repo: Path, max_cycles: int) -> dict[str, Any]:
+def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = False) -> dict[str, Any]:
     data = load(repo)
     data["autonomous"] = True
     data["require_human_gate"] = False
     data["auto_defaults"] = True
     data["auto_lock_specs"] = True
     data["auto_degraded_ok"] = True
+    data["self_prompt"] = self_prompt
+    data["self_prompt_mode"] = "inline+headless"  # A then B per docs/GROK-BUILD.md
+    data["self_prompt_spawn"] = spawn
     data["autonomous_max_cycles"] = max_cycles
     if data.get("status") == "PAUSED":
         data["status"] = "ACTIVE"
@@ -49,15 +53,24 @@ def enable(repo: Path, max_cycles: int) -> dict[str, Any]:
     baton = repo / ".halo" / "baton.md"
     baton.write_text(
         "# Baton\n"
-        "- Mode: AUTONOMOUS (halo-go)\n"
+        "- Mode: AUTONOMOUS (halo-go) + SELF-PROMPT\n"
         f"- Phase: {data.get('phase')}\n"
-        "- Rule: never ask optional questions; use defaults; drive phase machine\n"
+        "- Rule: never ask; defaults; drive phase machine; end every unit by refreshing NEXT_PROMPT.md\n"
         "- Hard stops only: kill switch, denylist, 3 fails, true BLOCKED secrets, explicit stop\n"
         f"- Max cycles this run: {max_cycles}\n"
-        "- Next: agent reads skill halo-go and advances phase without asking\n",
+        "- Self-prompt: inline continue, then headless `halo continue --spawn` if needed\n"
+        "- Next: load skill halo-go; execute plan; write NEXT_PROMPT\n",
         encoding="utf-8",
     )
-    log_line(repo, f"autonomous ENABLED max_cycles={max_cycles}")
+    log_line(repo, f"autonomous ENABLED max_cycles={max_cycles} self_prompt={self_prompt} spawn={spawn}")
+    # always seed NEXT_PROMPT for cold re-entry
+    try:
+        from halo_next_prompt import write_prompt
+
+        write_prompt(repo)
+        log_line(repo, "wrote .halo/NEXT_PROMPT.md")
+    except Exception as e:  # noqa: BLE001
+        log_line(repo, f"NEXT_PROMPT write failed: {e}")
     return data
 
 
@@ -135,13 +148,32 @@ def main() -> None:
     g.add_argument("--status", action="store_true")
     g.add_argument("--plan", action="store_true", help="print next autonomous actions")
     p.add_argument("--max-cycles", type=int, default=5)
+    p.add_argument("--spawn", action="store_true", help="allow headless self-prompt spawn flag")
+    p.add_argument("--no-self-prompt", action="store_true")
     args = p.parse_args()
     repo = Path(args.repo).resolve()
 
     if args.enable:
-        data = enable(repo, args.max_cycles)
+        data = enable(
+            repo,
+            args.max_cycles,
+            self_prompt=not args.no_self_prompt,
+            spawn=bool(args.spawn),
+        )
         plan = next_actions(repo)
-        print(json.dumps({"ok": True, "autonomous": True, "phase": data.get("phase"), "plan": plan}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "autonomous": True,
+                    "phase": data.get("phase"),
+                    "self_prompt": data.get("self_prompt"),
+                    "next_prompt": str(repo / ".halo" / "NEXT_PROMPT.md"),
+                    "plan": plan,
+                },
+                indent=2,
+            )
+        )
     elif args.disable:
         data = disable(repo)
         print(json.dumps({"ok": True, "autonomous": False, "phase": data.get("phase")}, indent=2))

@@ -52,11 +52,14 @@ grok plugin install /Users/james/code/halo --trust
 ./scripts/halo scaffold ~/code/my-app --profile fastapi --demo0 local
 ./scripts/halo status ~/code/my-app
 ./scripts/halo stop|resume|escalate|handoff|triage|doctor
-./scripts/halo go ~/code/my-app          # AUTONOMOUS — build without asking
-./scripts/halo go --off ~/code/my-app    # back to interactive
+./scripts/halo go ~/code/my-app          # AUTONOMOUS + self-prompt
+./scripts/halo continue ~/code/my-app    # refresh NEXT_PROMPT.md
+./scripts/halo continue ~/code/my-app --spawn  # grok -p re-entry
+./scripts/halo link-skills ~/code/my-app
+./scripts/halo go --off ~/code/my-app
 ```
 
-**Autonomous:** skill `halo-go` + `halo go`. Defaults only; hard stops still bind.
+**Autonomous + self-prompt:** skill `halo-go`. Writes `.halo/NEXT_PROMPT.md` for Grok headless / `/goal` / `/loop`. See `docs/GROK-BUILD.md`.
 
 ### Skills (all workflows)
 

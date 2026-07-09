@@ -49,6 +49,8 @@ REQUIRED_CLI = [
     "handoff",
     "doctor",
     "go",
+    "continue",
+    "link-skills",
 ]
 
 REQUIRED_PYTHON = [
@@ -63,6 +65,8 @@ REQUIRED_PYTHON = [
     "halo_phases.py",
     "halo_doctor.py",
     "halo_catalog.py",
+    "halo_next_prompt.py",
+    "halo_link_skills.py",
 ]
 
 
@@ -93,15 +97,21 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
                 if verb not in text:
                     issues.append({"level": "error", "code": "cli_verb_missing", "item": verb})
 
-    for doc in ("docs/WORKFLOWS.md", "docs/ARCHITECTURE.md", "docs/ARCHITECTURE-DEEP.md", "AGENTS.md"):
+    for doc in (
+        "docs/WORKFLOWS.md",
+        "docs/ARCHITECTURE.md",
+        "docs/ARCHITECTURE-DEEP.md",
+        "docs/GROK-BUILD.md",
+        "AGENTS.md",
+    ):
         if not (halo_sys / doc).exists():
             issues.append({"level": "error", "code": "doc_missing", "item": doc})
 
-    # WORKFLOWS should mention halo go / autonomous
+    # WORKFLOWS should mention halo go / autonomous / self-prompt
     wf = halo_sys / "docs" / "WORKFLOWS.md"
     if wf.exists():
         w = wf.read_text(encoding="utf-8")
-        for needle in ("halo go", "autonomous", "probe"):
+        for needle in ("halo go", "autonomous", "probe", "NEXT_PROMPT", "self-prompt"):
             if needle.lower() not in w.lower():
                 issues.append({"level": "warn", "code": "workflows_gap", "item": needle})
 
