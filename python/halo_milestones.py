@@ -65,9 +65,9 @@ def milestones_from_md(path: Path) -> list[dict[str, Any]]:
         scope = ""
         done = ""
         for line in rest.splitlines():
-            if re.match(r"-\s*Scope:", line, re.I):
+            if re.match(r"-\s*(?:\*\*)?Scope(?:\*\*)?\s*:", line, re.I):
                 scope = line.split(":", 1)[-1].strip()
-            if re.match(r"-\s*Done when:", line, re.I):
+            if re.match(r"-\s*(?:\*\*)?Done when(?:\*\*)?\s*:", line, re.I):
                 done = line.split(":", 1)[-1].strip()
         out.append(
             {

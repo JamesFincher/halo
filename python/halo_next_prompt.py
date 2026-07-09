@@ -353,6 +353,24 @@ def detect_issues_from_last_turn(last_assistant: str, phase: str) -> list[str]:
     return issues
 
 
+def spec_digest(repo: Path, limit: int = 3000) -> str:
+    '''Read .halo/spec file list and key document snippets for the prompt context.'''
+    spec = repo / ".halo" / "spec"
+    parts: list[str] = []
+    if spec.is_dir():
+        files = sorted(p.name for p in spec.iterdir() if p.is_file())
+        if files:
+            parts.append(f"**Spec files ({len(files)}):** " + ", ".join(files))
+    for name in ("PRD.md", "STACK.md", "API.md", "DATA-MODEL.md", "STORIES.md", "MILESTONES.md"):
+        p = spec / name
+        if p.exists():
+            text = _read(p, limit=limit)
+            if text:
+                parts.append(f"\n### {name}\n")
+                parts.append(text[:limit])
+    return "\n".join(parts) if parts else "(no spec pack yet — run halo specs)"
+
+
 def build_prompt(
     repo: Path,
     halo_sys: Path,
@@ -417,6 +435,7 @@ def build_prompt(
     prog = progress_tail(repo)
     last_asst = extract_last_assistant(transcript_path)
     turn_issues = detect_issues_from_last_turn(last_asst, str(phase))
+    spec_block = spec_digest(repo, limit=3000)
 
     intake = data.get("intake") or {}
     purpose = intake.get("purpose") or ""
@@ -496,6 +515,9 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 | Last demo URL | {demo} |
 | Loop iteration | {iter_n} / {max_n} |
 | roadmap_exhausted | {roadmap_exhausted} |
+
+### Spec context
+{spec_block}
 
 ### Purpose (from intake)
 {purpose or "(not set — define this turn if in intake)"}

@@ -253,6 +253,47 @@ def compute_verdict(items: list[dict[str, Any]], allow_degraded: bool) -> str:
     return "NO_GO"
 
 
+def check_spec_pack(repo: Path, spec_status: str | None, spec_pack_version: int = 0) -> dict[str, Any]:
+    '''Verify core spec pack exists. Expanded pack is required only when the state says it was generated.'''
+    spec = repo / ".halo" / "spec"
+    required = [
+        "PRD.md", "STACK.md", "DATA-MODEL.md", "STORIES.md", "MILESTONES.md", "READINESS.md",
+    ]
+    expanded = [
+        "API.md", "USER-FLOWS.md", "ARCHITECTURE-DECISIONS.md", "SEQUENCE.md", "STATE.md",
+        "SECURITY.md", "TEST-PLAN.md", "FRONTEND.md", "BACKEND.md", "MOBILE.md",
+        "DEPLOYMENT.md", "RUNBOOK.md", "METRICS.md", "PROMPTS.md", "GLOSSARY.md",
+        "RISKS.md", "PERSONAS.md", "SEED.md", "CHANGELOG.md", "CONTRIBUTING.md",
+    ]
+    missing = [f for f in required if not (spec / f).exists()]
+    missing_expanded: list[str] = []
+    if spec_pack_version >= 2:
+        missing_expanded = [f for f in expanded if not (spec / f).exists()]
+    locked = spec_status == "locked"
+    blocking = locked and bool(missing)
+    ok = not missing and not missing_expanded
+    human = None
+    if missing:
+        human = f"run halo specs to generate {', '.join(missing)}"
+    elif missing_expanded:
+        human = f"regenerate spec pack with halo specs for {', '.join(missing_expanded)}"
+    return {
+        "id": "spec_pack",
+        "ok": ok,
+        "blocking": blocking,
+        "skipped": False,
+        "provider": "halo",
+        "purpose": "spec documents exist",
+        "env": [],
+        "env_missing": [],
+        "env_present_count": 0,
+        "cli": [],
+        "cli_missing": [],
+        "cli_auth_failed": [],
+        "human_action": human or "All expected spec files present.",
+    }
+
+
 def run(repo: Path, allow_degraded: bool, write: bool) -> dict[str, Any]:
     repo = repo.resolve()
     os.chdir(repo)
@@ -285,6 +326,8 @@ def run(repo: Path, allow_degraded: bool, write: bool) -> dict[str, Any]:
                 result["cli_missing"] = ["git"]
                 result["human_action"] = "Install git"
         checked.append(result)
+
+    checked.append(check_spec_pack(repo, state.get("spec_status"), int(state.get("spec_pack_version") or 0)))
 
     verdict = compute_verdict(checked, allow_degraded=allow_degraded)
     blocking_failures = sum(1 for i in checked if i.get("blocking") and not i.get("ok") and not i.get("skipped"))

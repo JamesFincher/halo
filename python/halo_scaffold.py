@@ -144,11 +144,10 @@ def scaffold(
         if verdict == "NO_GO":
             raise SystemExit("readiness NO_GO — fill .env and re-run halo ready (or --skip-ready-check)")
 
-    if state.get("spec_status") not in ("locked", "ready_for_review", "none", None) and not force:
-        pass  # allow scaffold after readiness even if
-    if state.get("spec_status") != "locked" and not force and not skip_ready_check:
-        # soft warn in result
-        pass
+    if state.get("spec_status") != "locked" and not force:
+        raise SystemExit(
+            "spec_status not locked — run `halo specs && halo lock` before scaffold"
+        )
 
     prof = detect_profile(repo, state, profile)
     name = state.get("product_name") or (state.get("intake") or {}).get("product_name") or "Halo App"

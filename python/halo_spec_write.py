@@ -1273,7 +1273,8 @@ def write_specs(repo: Path) -> list[str]:
     w("CHANGELOG.md", _render_changelog(name, intake))
     w("CONTRIBUTING.md", _render_contributing(name, intake))
 
-    # mark drafting
+    # mark drafting and bump spec pack version so gates know the expanded pack was generated
+    state["spec_pack_version"] = 2
     state["spec_status"] = state.get("spec_status") if state.get("spec_status") == "locked" else "ready_for_review"
     if state.get("phase") not in ("readiness", "scaffold", "build"):
         state["phase"] = "spec_review"
