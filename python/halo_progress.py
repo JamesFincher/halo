@@ -263,7 +263,17 @@ def main() -> None:
     t = sub.add_parser("tail")
     t.add_argument("--repo", default=".")
     t.add_argument("-n", type=int, default=15)
-    t.set_defaults(func=lambda args: print(json.dumps(tail(Path(args.repo), args.n), indent=2)))
+
+    def do_tail(args: argparse.Namespace) -> None:
+        # D176: stdout is object envelope {events, scores_count, trajectories_count,
+        # scores_trajectories_match} — not a bare array. Library tail() still returns list.
+        repo = Path(args.repo)
+        events = tail(repo, args.n)
+        out: dict[str, Any] = {"events": events}
+        out.update(progress_add_score_fields(repo))
+        print(json.dumps(out, indent=2))
+
+    t.set_defaults(func=do_tail)
 
     args = p.parse_args()
     args.func(args)
