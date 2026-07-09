@@ -45,6 +45,8 @@ halo — autonomous product development system
                            AUTONOMOUS mode — build without asking
   continue [path] [--spawn] Write NEXT_PROMPT; optional grok -p re-entry
   link-skills [path]       Symlink Halo skills into product .grok/skills
+  loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
+  loop-cancel [path]       Disarm true loop
   workflows                Show workflow map path
   help                     This help
 EOF
@@ -349,6 +351,28 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     path="$(repo_arg "${1:-.}")"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     "$PY" "$HALO_SYSTEM/python/halo_link_skills.py" --halo-system "$HALO_SYSTEM" --repo "$path"
+    ;;
+
+  loop)
+    path="."
+    max=50
+    spawn_args=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --max) max="$2"; shift 2 ;;
+        --spawn) spawn_args+=(--spawn); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export HALO_SYSTEM
+    ( cd "$path" && bash "$HALO_SYSTEM/scripts/setup-halo-loop.sh" --max "$max" "${spawn_args[@]+"${spawn_args[@]}"}" )
+    ;;
+
+  loop-cancel)
+    path="$(repo_arg "${1:-.}")"
+    export HALO_SYSTEM
+    ( cd "$path" && bash "$HALO_SYSTEM/scripts/cancel-halo-loop.sh" )
     ;;
 
   evidence)

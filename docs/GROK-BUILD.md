@@ -33,7 +33,23 @@ Sources: local `~/.grok/docs/user-guide/` (skills, headless, background tasks, s
 
 ---
 
-## 2. Self-prompt model (three modes)
+## 1b. True session loop (Stop hook) — see TRUE-LOOP.md
+
+Core mechanism for “like the user typed again” **inside the same session**:
+
+```
+Stop event → hooks/halo-stop-loop.sh
+  → if .halo/loop.json active
+  → stdout: {"decision":"block","reason": <NEXT_PROMPT text>}
+  → harness re-injects reason as next user message
+```
+
+This is the **Ralph Wiggum** protocol (Claude Code plugin; Grok loads Claude-compatible hooks).  
+Slash: `/halo-loop` · CLI: `halo loop` · Cancel: `/halo-loop-cancel`.
+
+Also available on Grok: `/goal`, `/loop`, scheduler inject, `asyncRewake` (see TRUE-LOOP.md).
+
+## 2. Self-prompt model (three modes + Stop)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

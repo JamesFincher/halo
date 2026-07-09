@@ -59,7 +59,15 @@ grok plugin install /Users/james/code/halo --trust
 ./scripts/halo go --off ~/code/my-app
 ```
 
-**Autonomous + self-prompt:** skill `halo-go`. Writes `.halo/NEXT_PROMPT.md` for Grok headless / `/goal` / `/loop`. See `docs/GROK-BUILD.md`.
+**True loop:** Stop hook re-injects `.halo/NEXT_PROMPT.md` as the next user turn (`docs/TRUE-LOOP.md`).
+
+```bash
+grok plugin install /Users/james/code/halo --trust
+cd my-product && /halo-loop --max 50
+# or: ./scripts/halo loop . --max 50
+```
+
+Also: skill `halo-go`, headless `continue --spawn`, `/goal`, `/loop`.
 
 ### Skills (all workflows)
 

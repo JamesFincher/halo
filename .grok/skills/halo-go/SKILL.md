@@ -38,6 +38,22 @@ State flags:
 
 ---
 
+## True loop (Stop hook) — core
+
+Arm with `/halo-loop` or `halo loop . --max 50` → `.halo/loop.json` active.
+
+On every **Stop**, plugin hook `hooks/halo-stop-loop.sh` emits:
+
+```json
+{"decision":"block","reason":"<contents of .halo/NEXT_PROMPT.md>","systemMessage":"Halo loop iteration N"}
+```
+
+The harness re-injects `reason` as the **next user message** (Ralph protocol). See `docs/TRUE-LOOP.md`.
+
+Cancel: `/halo-loop-cancel`.
+
+---
+
 ## Self-prompt protocol (mandatory under go)
 
 After **every** completed unit (phase advance, story cycle, or hard stop check):
