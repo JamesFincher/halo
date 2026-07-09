@@ -781,6 +781,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "null when scores/trajectories dirs empty or missing",
         ],
     ),
+    # Batch 34+ — escalate counts + commit-unit score culture
+    (
+        "halo escalate JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "escalate packet or stdout JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "halo commit-unit JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "commit-unit stdout JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo commit-unit JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "commit-unit stdout JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
 ]
 
 

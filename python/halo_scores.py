@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110/D113)."""
+"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110/D113/D157)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,27 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# D157: explicit six-dimension contract for compounding score stubs.
+# Top-level keys + nested `dimensions` map must stay in sync.
+SIX_DIMENSIONS: tuple[str, ...] = (
+    "tool_selection",
+    "argument_extraction",
+    "result_utilization",
+    "error_recovery",
+    "plan_coherence",
+    "task_completion",
+)
+
+# Default neutral stub values (critic skill may overwrite later).
+_DEFAULT_DIM_SCORES: dict[str, float] = {
+    "tool_selection": 0.7,
+    "argument_extraction": 0.7,
+    "result_utilization": 0.7,
+    "error_recovery": 0.7,
+    "plan_coherence": 0.7,
+    "task_completion": 0.8,
+}
 
 
 def utc_now() -> str:
@@ -111,22 +132,26 @@ def write_cycle_score(
     feature_id: str,
     note: str = "",
 ) -> Path:
-    """Write six-dimension score stub with warm_start_directive (D103)."""
+    """Write six-dimension score stub with warm_start_directive (D103/D157).
+
+    D157: sequential id S### equals path stem; all SIX_DIMENSIONS present as
+    unit-interval floats at top level and under nested ``dimensions`` map;
+    ``schema_version`` is 1; ``tool_selection`` + ``warm_start_directive`` always set.
+    """
     scores = repo / ".halo" / "scores"
     n = _next_num(scores, "S")
-    path = scores / f"S{n:03d}.json"
+    sid = f"S{n:03d}"
+    path = scores / f"{sid}.json"
     # Neutral stub scores — critic skill can overwrite later; structure is the contract
-    payload = {
-        "id": f"S{n:03d}",
+    dim_vals = {k: float(_DEFAULT_DIM_SCORES[k]) for k in SIX_DIMENSIONS}
+    payload: dict[str, Any] = {
+        "id": sid,
+        "schema_version": 1,
         "feature_id": feature_id,
         "at": utc_now(),
         "git_head": _git_head(repo),
-        "tool_selection": 0.7,
-        "argument_extraction": 0.7,
-        "result_utilization": 0.7,
-        "error_recovery": 0.7,
-        "plan_coherence": 0.7,
-        "task_completion": 0.8,
+        **dim_vals,
+        "dimensions": dict(dim_vals),
         "warm_start_directive": (
             note
             or "Next cycle: prefer requires_code FILE_DIFF units; expand ROADMAP when exhausted."
