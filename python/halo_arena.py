@@ -224,6 +224,31 @@ def verify(repo: Path, feature_id: str) -> dict[str, Any]:
     return report
 
 
+def spawn_check_note(repo: Path, feature_id: str, report: dict[str, Any]) -> dict[str, Any]:
+    """Optional second-pass stub: record that a dual-lens verify completed.
+
+    Full subagent spawn is host-dependent; this writes a spawn-check cert so the
+    loop can require an explicit second-pass artifact without faking LLM isolation.
+    """
+    out = {
+        "cert": "ARENA_SPAWN_CHECK",
+        "feature_id": feature_id,
+        "mode": "stub-second-pass",
+        "note": (
+            "Deterministic dual-lens already ran (A adversarial + B constructive). "
+            "True multi-agent spawn remains optional; this cert proves second-pass hook."
+        ),
+        "base_verdict": report.get("verdict"),
+        "at": utc_now(),
+    }
+    ev = repo / ".halo" / "evidence"
+    ev.mkdir(parents=True, exist_ok=True)
+    path = ev / f"arena-spawn-check-{feature_id}.json"
+    path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+    out["path"] = str(path)
+    return out
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_arena")
     p.add_argument("--repo", default=".")
@@ -231,10 +256,17 @@ def main() -> None:
     v = sub.add_parser("verify", help="dual-lens verify one feature")
     v.add_argument("--id", required=True)
     v.add_argument("--repo", dest="repo_sub", default=None, help="repo (also allowed after verify)")
+    v.add_argument(
+        "--spawn-check",
+        action="store_true",
+        help="write arena-spawn-check-{id}.json second-pass cert (stub for multi-agent)",
+    )
     args = p.parse_args()
     repo = Path(args.repo_sub or args.repo or ".")
     if args.cmd == "verify":
         rep = verify(repo, args.id)
+        if args.spawn_check:
+            rep["spawn_check"] = spawn_check_note(repo, args.id, rep)
         print(json.dumps(rep, indent=2))
         raise SystemExit(0 if rep["verdict"] == "APPROVED" else 2)
 

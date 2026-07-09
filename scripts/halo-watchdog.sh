@@ -29,6 +29,8 @@ while true; do
 
   # planner always refreshes NEXT_PROMPT + baton
   $PY "$HALO_SYS/python/halo_planner.py" --repo "$ROOT" --halo-system "$HALO_SYS" || true
+  mkdir -p "$ROOT/.halo/logs"
+  date -u +"{\"at\":\"%Y-%m-%dT%H:%M:%SZ\",\"pid\":72571,"ok":true}" > "$ROOT/.halo/logs/watchdog-heartbeat.json"
 
   # ensure headless builder running
   $PY "$HALO_SYS/python/halo_drive.py" --repo "$ROOT" --halo-system "$HALO_SYS" spawn 2>/dev/null || true

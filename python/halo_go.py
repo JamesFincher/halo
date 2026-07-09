@@ -96,6 +96,12 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
         data["status"] = "ACTIVE"
     save(repo, data)
     arm_loop(repo, max_cycles)
+    try:
+        from halo_planner import run_planner
+        run_planner(repo)
+        log_line(repo, "planner refreshed NEXT_PROMPT on go enable")
+    except Exception as e:  # noqa: BLE001
+        log_line(repo, f"planner on enable failed: {e}")
     # seed budget file if missing (hard caps via env / budget.json)
     budget_p = repo / ".halo" / "budget.json"
     if not budget_p.exists():
