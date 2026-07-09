@@ -397,6 +397,18 @@ def build_prompt(
     blockers = readiness_blockers(repo)
     evidence = evidence_summary(repo)
     feats = feature_summary(repo)
+    budget_line = "(budget n/a)"
+    try:
+        from halo_budget import check as budget_check
+        bv = budget_check(repo)
+        bb = bv.get('budget') or {}
+        budget_line = (
+            f"verdict={bv.get('verdict')} reason={bv.get('reason')} "
+            f"iter={bv.get('iteration')} day_cycles={bv.get('day_cycles')} "
+            f"max_iter={bb.get('max_iterations')} max_daily={bb.get('max_daily_cycles')}"
+        )
+    except Exception as _e:
+        budget_line = f"(budget error: {_e})"
     prog = progress_tail(repo)
     last_asst = extract_last_assistant(transcript_path)
     turn_issues = detect_issues_from_last_turn(last_asst, str(phase))
@@ -486,6 +498,9 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 
 ### Pending work (markdown view)
 {stories_list}
+
+### Budget gate
+{budget_line}
 
 ### Progress log (tail)
 {prog}
