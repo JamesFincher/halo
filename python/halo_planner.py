@@ -167,9 +167,18 @@ def run_planner(repo: Path, halo_sys: Path | None = None) -> dict[str, Any]:
     np = repo / ".halo" / "NEXT_PROMPT.md"
     if np.exists():
         body = np.read_text(encoding="utf-8")
+        exhausted = bool(plan.get("roadmap_exhausted"))
+        # D094: surface roadmap_exhausted so agents expand ROADMAP_TEMPLATES
+        exhausted_line = (
+            f"**roadmap_exhausted:** true — expand ROADMAP_TEMPLATES in "
+            f"halo_features.py then force seed\n"
+            if exhausted
+            else f"**roadmap_exhausted:** false\n"
+        )
         banner = (
             f"# Planner refresh {plan['at']}\n"
-            f"**RECOMMENDATION:** {plan['recommendation']}\n\n"
+            f"**RECOMMENDATION:** {plan['recommendation']}\n"
+            f"{exhausted_line}\n"
         )
         if not body.startswith("# Planner refresh"):
             np.write_text(banner + body, encoding="utf-8")
