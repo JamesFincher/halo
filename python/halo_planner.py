@@ -79,6 +79,10 @@ def study(repo: Path) -> dict[str, Any]:
     scores_count = (
         len(list(scores_dir.glob("S*.json"))) if scores_dir.is_dir() else 0
     )
+    traj_dir = repo / ".halo" / "trajectories"
+    trajectories_count = (
+        len(list(traj_dir.glob("GT-*.json"))) if traj_dir.is_dir() else 0
+    )
     plan = {
         "at": utc_now(),
         "phase": state.get("phase"),
@@ -97,6 +101,7 @@ def study(repo: Path) -> dict[str, Any]:
         "roadmap_exhausted": roadmap_exhausted,
         "scores_count": scores_count,
         "scores_missing": scores_count == 0,
+        "trajectories_count": trajectories_count,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),
