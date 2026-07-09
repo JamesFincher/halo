@@ -285,40 +285,44 @@ if promise_hit:
 if not prompt.strip():
     raise SystemExit(0)
 
-# optional headless spawn fallback
-if state.get("self_prompt_spawn") and os.environ.get("HALO_STOP_SPAWN") == "1":
-    import shutil
+# ── Grok-native continue path ────────────────────────────────────────
+# Official Grok hooks: Stop is PASSIVE (only PreToolUse blocks).
+# decision:block + reason is Ralph/Claude-compatible but Grok IGNORES the block.
+# So we MUST headless-spawn (or rely on scheduler_/loop) or the human has to type.
+spawn_meta = {}
+want_spawn = (
+    os.environ.get("HALO_NO_SPAWN") != "1"
+    and (
+        state.get("self_prompt_spawn")
+        or state.get("drive_mode") in ("headless", "hybrid", None, "")
+        or os.environ.get("HALO_STOP_SPAWN") == "1"
+        or os.environ.get("GROK_PLUGIN_ROOT")  # running under Grok plugin → always drive
+        or os.environ.get("GROK_WORKSPACE_ROOT")
+    )
+)
+if want_spawn:
+    try:
+        sys.path.insert(0, str(halo_sys / "python"))
+        from halo_drive import spawn_headless  # type: ignore
 
-    grok = shutil.which("grok")
-    if grok:
-        subprocess.Popen(
-            [
-                grok,
-                "-p",
-                "--prompt-file",
-                str(next_p),
-                "--cwd",
-                str(cwd),
-                "--yolo",
-                "--max-turns",
-                "80",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        spawn_meta = spawn_headless(cwd, max_turns=80, halo_sys=halo_sys)
+    except Exception as e:  # noqa: BLE001
+        spawn_meta = {"ok": False, "error": str(e)}
 
 msg = (
     f"Halo loop {next_iter}/{max_iter} | halo-go | never ask"
     + (" | STRUGGLE" if struggle else "")
+    + (" | DRIVE_SPAWN" if spawn_meta.get("ok") else "")
 )
-# Ralph / Claude Code Stop protocol — reason is re-injected as next user message
+# Ralph / Claude Code Stop protocol — reason MAY re-inject on Claude hosts.
+# On Grok this is best-effort only; real continue is spawn_meta / scheduler.
 out = {
     "decision": "block",
     "reason": prompt,
     "systemMessage": msg,
     "continue": True,
     "additionalContext": prompt,
+    "halo_drive": spawn_meta,
 }
 sys.stdout.write(json.dumps(out))
 PY

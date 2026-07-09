@@ -74,7 +74,12 @@ def disarm_loop(repo: Path, reason: str = "go_disabled") -> None:
     loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
 
 
-def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = False) -> dict[str, Any]:
+def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = True) -> dict[str, Any]:
+    """Enable autonomous + true loop.
+
+    spawn defaults TRUE: Grok Build ignores Stop decision:block (passive hooks),
+    so headless re-entry is required for hands-off continue.
+    """
     data = load(repo)
     data["autonomous"] = True
     data["require_human_gate"] = False
@@ -83,7 +88,9 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
     data["auto_degraded_ok"] = True
     data["self_prompt"] = self_prompt
     data["self_prompt_mode"] = "inline+headless"  # A then B per docs/GROK-BUILD.md
+    # Grok-native: always enable spawn unless explicitly disabled
     data["self_prompt_spawn"] = spawn
+    data["drive_mode"] = "hybrid"  # Stop JSON (Claude) + headless spawn (Grok)
     data["autonomous_max_cycles"] = max_cycles
     if data.get("status") == "PAUSED":
         data["status"] = "ACTIVE"
@@ -245,7 +252,11 @@ def main() -> None:
     g.add_argument("--status", action="store_true")
     g.add_argument("--plan", action="store_true", help="print next autonomous actions")
     p.add_argument("--max-cycles", type=int, default=5)
-    p.add_argument("--spawn", action="store_true", help="allow headless self-prompt spawn flag")
+    p.add_argument(
+        "--no-spawn",
+        action="store_true",
+        help="disable headless drive (default is ON — required on Grok)",
+    )
     p.add_argument("--no-self-prompt", action="store_true")
     args = p.parse_args()
     repo = Path(args.repo).resolve()
@@ -255,9 +266,18 @@ def main() -> None:
             repo,
             args.max_cycles,
             self_prompt=not args.no_self_prompt,
-            spawn=bool(args.spawn),
+            spawn=not bool(args.no_spawn),
         )
         plan = next_actions(repo)
+        # Kick first headless driver immediately so human never has to re-message on Grok
+        drive_result: dict = {}
+        if data.get("self_prompt_spawn"):
+            try:
+                from halo_drive import spawn_headless
+
+                drive_result = spawn_headless(repo, max_turns=80)
+            except Exception as e:  # noqa: BLE001
+                drive_result = {"ok": False, "error": str(e)}
         print(
             json.dumps(
                 {
@@ -265,8 +285,15 @@ def main() -> None:
                     "autonomous": True,
                     "phase": data.get("phase"),
                     "self_prompt": data.get("self_prompt"),
+                    "self_prompt_spawn": data.get("self_prompt_spawn"),
+                    "drive_mode": data.get("drive_mode"),
                     "next_prompt": str(repo / ".halo" / "NEXT_PROMPT.md"),
                     "plan": plan,
+                    "drive": drive_result,
+                    "note": (
+                        "Grok Stop hooks are passive — continuous work uses headless "
+                        "spawn + optional TUI /loop. decision:block alone will NOT re-prompt."
+                    ),
                 },
                 indent=2,
             )

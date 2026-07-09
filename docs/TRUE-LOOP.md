@@ -1,4 +1,30 @@
-# Halo True Loop — Intercept Stop → Re-inject Prompt
+# Halo True Loop — Continuous Drive
+
+## Root cause (2026-07): why "armed" still needed a human message
+
+**Grok Build official hooks docs:** only `PreToolUse` is blocking. **`Stop` is passive.**
+
+Halo previously emitted Ralph-compatible:
+
+```json
+{"decision":"block","reason":"<NEXT_PROMPT>"}
+```
+
+That re-injects on **Claude Code**. On **Grok**, the hook runs, files update, but the harness **does not** treat `decision:block` as "inject next user turn". So the agent stops and waits for you.
+
+### Fix (current)
+
+| Path | Role |
+|------|------|
+| **Headless spawn** | On Stop (and on `halo go`), `halo_drive.spawn_headless` runs `grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo` |
+| **User Stop hook** | `~/.grok/hooks/halo-true-loop.json` always fires Stop drive |
+| **Optional TUI /loop** | Same-session inject: `/loop 60s $(cat .halo/scheduler-prompt.txt)` |
+| Ralph JSON | Still emitted for Claude-compatible hosts |
+
+`self_prompt_spawn` defaults **ON**. Disable only with `--no-spawn` / `HALO_NO_SPAWN=1`.
+
+---
+
 
 This is the **core loop mechanism**: how Halo makes Grok Build (and Claude Code) keep working **as if the user typed the next message**, without the human being present.
 

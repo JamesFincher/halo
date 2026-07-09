@@ -1,44 +1,42 @@
 ---
 name: go
-description: "Halo GO — arm permanent autonomous build loop (Stop re-injects NEXT_PROMPT). No optional questions. Walk away."
-argument-hint: "[--max N] [--spawn]"
+description: "Halo GO — continuous autonomous build. Grok-native headless drive (Stop is passive on Grok)."
+argument-hint: "[--max N] [--no-spawn]"
 ---
 
-# /go — permanent Halo build loop
+# /go — continuous Halo build (Grok-fixed)
 
-You are now under **standing authorization**. Do not ask optional questions. Do not wait for "continue".
+## Why you used to have to re-message
 
-## 1. Arm the loop (run now)
+Grok Build **Stop hooks are passive** (docs: only `PreToolUse` blocks).  
+Ralph `decision:block` + `reason` works on Claude Code; **Grok ignores the block**.  
+Halo now **headless-spawns** `grok -p --prompt-file .halo/NEXT_PROMPT.md` on Stop so work continues without you typing.
+
+## 1. Arm drive (run now)
 
 ```!
 export HALO_SYSTEM="${HALO_SYSTEM:-${GROK_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}}"
 export TARGET="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
-# Dogfood: TARGET may equal HALO_SYSTEM
+cd "$TARGET"
 bash "${HALO_SYSTEM}/scripts/setup-halo-loop.sh" $ARGUMENTS
 ```
 
-This writes:
+## 2. Same-session TUI inject (strongly recommended)
 
-- `.halo/state.json` → `autonomous: true`
-- `.halo/loop.json` → `active: true` (Stop hook re-injects)
-- `.halo/NEXT_PROMPT.md` → engineered next unit
-- skills linked (or dogfood-skip if factory)
+After arming, create a Grok scheduler so the **open TUI** also gets synthetic turns (headless is a separate process):
 
-## 2. Work immediately (skill **halo-go**)
+Read `.halo/scheduler-prompt.txt` and run the platform `/loop` or `scheduler_create` with interval **60s**, `fire_immediately: true`, prompt = that file’s contents.
 
-1. Read `.halo/state.json`, `.halo/baton.md`, `.halo/NEXT_PROMPT.md`, feature-list summary  
-2. Execute **one** unit from the phase plan (defaults only)  
-3. Refresh NEXT_PROMPT; progress log; evidence; safe commit-unit when code changes  
-4. When you would exit → **Stop hook blocks** and re-injects NEXT_PROMPT as the next user turn (true loop)  
-5. Stop only on: max iterations, `<promise>HALO_COMPLETE</promise>` with honest all-pass, PAUSED/ESCALATED, budget HALT  
+If you cannot call scheduler tools, still OK — headless spawn from Stop will drive in the background.
 
-## 3. Cancel later
+## 3. Work now (skill halo-go)
 
-- Slash: `/halo-loop-cancel` or `/stop-loop`  
-- CLI: `halo go --off` / `halo loop-cancel`  
+1. Read baton + NEXT_PROMPT + feature-list  
+2. Execute **one** unit  
+3. Refresh NEXT_PROMPT; when you stop, drive continues without the human  
 
-## Hard rules
+## Cancel
 
-Never AskUserQuestion for optional prefs. Never fake evidence. Never force-add gitignored `.halo/` when dogfooding the factory. Preview only; probe before share.
+`/stop-loop` · `halo go --off` · `halo loop-cancel`
 
-**Begin now — do not summarize and wait.**
+**Begin work immediately. Do not wait for another human message.**

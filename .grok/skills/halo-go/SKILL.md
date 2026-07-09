@@ -38,19 +38,28 @@ State flags:
 
 ---
 
-## True loop (Stop hook) — core
+## Continuous drive — core (Grok vs Claude)
 
-Arm with `/halo-loop` or `halo loop . --max 50` → `.halo/loop.json` active.
+Arm with **`/go`** or `halo go . --max 50` → `.halo/loop.json` active + headless drive.
 
-On every **Stop**, plugin hook `hooks/halo-stop-loop.sh` emits:
+### Grok Build (primary target)
 
-```json
-{"decision":"block","reason":"<contents of .halo/NEXT_PROMPT.md>","systemMessage":"Halo loop iteration N"}
-```
+**Stop hooks are passive** (only PreToolUse blocks). Ralph `decision:block` is **ignored**.
 
-The harness re-injects `reason` as the **next user message** (Ralph protocol). See `docs/TRUE-LOOP.md`.
+Real continue path:
 
-Cancel: `/halo-loop-cancel`.
+1. **Headless spawn** (default ON): Stop runs `halo_drive.spawn_headless` →  
+   `grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo`
+2. **Optional same-session TUI:** `/loop 60s` with text from `.halo/scheduler-prompt.txt`  
+   (or agent `scheduler_create` interval `60s`, fire_immediately)
+
+Disable spawn only with `halo go --no-spawn` / `HALO_NO_SPAWN=1` (then you must message).
+
+### Claude-compatible hosts
+
+Stop still emits Ralph JSON; host may re-inject `reason` as next user turn.
+
+See `docs/TRUE-LOOP.md`. Cancel: `/stop-loop` / `halo loop-cancel`.
 
 ---
 

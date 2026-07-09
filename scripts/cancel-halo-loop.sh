@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
+# Disarm continuous drive
 set -euo pipefail
 ROOT="$(pwd)"
-LOOP="$ROOT/.halo/loop.json"
-if [[ -f "$LOOP" ]]; then
-  python3 - <<PY
+HALO_SYS="${HALO_SYSTEM:-${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}}"
+if [[ -z "$HALO_SYS" || ! -d "$HALO_SYS/python" ]]; then
+  HALO_SYS="$(cd "$(dirname "$0")/.." && pwd)"
+fi
+export PYTHONPATH="${HALO_SYS}/python${PYTHONPATH:+:$PYTHONPATH}"
+PY="${PYTHON:-python3}"
+
+if [[ -f "$ROOT/.halo/state.json" ]]; then
+  "$PY" "$HALO_SYS/python/halo_go.py" --repo "$ROOT" --disable 2>/dev/null || true
+fi
+
+python3 - <<PY
 import json
 from pathlib import Path
-p = Path("$LOOP")
-d = json.loads(p.read_text()) if p.exists() else {}
-d["active"] = False
-d["stopped_reason"] = "cancelled"
-p.write_text(json.dumps(d, indent=2) + "\n")
-print("Halo loop cancelled (loop.json active=false)")
+root = Path("$ROOT")
+for name in ("loop.json", "drive.lock"):
+    p = root / ".halo" / name
+    if name == "loop.json" and p.exists():
+        try:
+            d = json.loads(p.read_text())
+        except Exception:
+            d = {}
+        d["active"] = False
+        d["stopped_reason"] = "cancel"
+        p.write_text(json.dumps(d, indent=2) + "\n")
+    elif p.exists():
+        p.unlink(missing_ok=True)
+print("Halo drive disarmed (loop inactive, drive.lock cleared)")
+print("Also cancel TUI /loop jobs via scheduler_list + scheduler_delete if you created any")
 PY
-fi
-if [[ -f "$ROOT/.halo/state.json" ]]; then
-  HALO_SYS="${HALO_SYSTEM:-$(cd "$(dirname "$0")/.." && pwd)}"
-  export PYTHONPATH="${HALO_SYS}/python${PYTHONPATH:+:$PYTHONPATH}"
-  python3 "$HALO_SYS/python/halo_go.py" --repo "$ROOT" --disable 2>/dev/null || true
-fi
-echo "Normal stop allowed."

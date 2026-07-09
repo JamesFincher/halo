@@ -519,6 +519,22 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     "$PY" "$HALO_SYSTEM/python/halo_stories_sync.py" --repo "$path"
     ;;
 
+  drive)
+    path="."
+    rest=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        spawn|status|scheduler-prompt|should-drive) rest+=("$1"); shift ;;
+        --*) rest+=("$1"); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ ${#rest[@]} -eq 0 ]]; then rest=(status); fi
+    "$PY" "$HALO_SYSTEM/python/halo_drive.py" --repo "$path" --halo-system "$HALO_SYSTEM" "${rest[@]}"
+    ;;
+
   workflows)
     echo "$HALO_SYSTEM/docs/WORKFLOWS.md"
     ;;
