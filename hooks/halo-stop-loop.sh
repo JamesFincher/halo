@@ -305,8 +305,9 @@ want_spawn = (
 if want_spawn:
     try:
         sys.path.insert(0, str(halo_sys / "python"))
-        from halo_drive import spawn_headless  # type: ignore
+        from halo_drive import spawn_headless, clear_stale_drive_lock  # type: ignore
 
+        clear_stale_drive_lock(cwd)
         spawn_meta = spawn_headless(cwd, max_turns=80, halo_sys=halo_sys)
     except Exception as e:  # noqa: BLE001
         spawn_meta = {"ok": False, "error": str(e)}
@@ -326,6 +327,23 @@ out = {
     "additionalContext": prompt,
     "halo_drive": spawn_meta,
 }
+# Audit trail for dogfood / operators
+try:
+    log_dir = cwd / ".halo" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stop_last = {
+        "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "iteration": next_iter,
+        "max_iterations": max_iter,
+        "struggle": struggle,
+        "spawn": spawn_meta,
+        "systemMessage": msg,
+    }
+    (log_dir / "stop-last.json").write_text(
+        json.dumps(stop_last, indent=2) + "\n", encoding="utf-8"
+    )
+except Exception:
+    pass
 sys.stdout.write(json.dumps(out))
 PY
 

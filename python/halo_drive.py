@@ -283,11 +283,33 @@ def main() -> None:
         raise SystemExit(0 if r.get("ok") else 2)
     if args.cmd == "status":
         stale = clear_stale_drive_lock(repo)
+        loop = _json(repo / ".halo" / "loop.json")
+        next_feat = None
+        try:
+            from halo_features import summary as feature_summary
+
+            fs = feature_summary(repo, compound=False)
+            next_feat = fs.get("next")
+            feat_summary = {
+                "passed": fs.get("passed"),
+                "total": fs.get("total"),
+                "remaining": fs.get("remaining"),
+                "all_pass": fs.get("all_pass"),
+                "next_id": (next_feat or {}).get("id") if isinstance(next_feat, dict) else None,
+            }
+        except Exception as e:  # noqa: BLE001
+            feat_summary = {"error": str(e)}
         print(
             json.dumps(
                 {
                     "loop_active": loop_active(repo),
                     "work_remains": work_remains(repo),
+                    "loop": {
+                        "iteration": loop.get("iteration"),
+                        "max_iterations": loop.get("max_iterations"),
+                        "active": loop.get("active"),
+                    },
+                    "features": feat_summary,
                     "lock": _json(drive_lock_path(repo)),
                     "stale_clear": stale,
                     "last": _json(repo / ".halo" / "drive-last.json"),

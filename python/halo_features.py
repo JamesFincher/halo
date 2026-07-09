@@ -220,28 +220,44 @@ def _next_d_ids(features: list[dict[str, Any]], n: int = 3) -> list[str]:
     return [f"D{start + i:03d}" for i in range(n)]
 
 
+# Real factory upgrades only — never pure "still green" smoke (anti-thrash)
+ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
+    (
+        "Stop hook writes .halo/logs/stop-last.json with spawn result",
+        ["stop-last.json written on Stop", "includes iteration + spawn ok/error"],
+    ),
+    (
+        "Dogfood feature pass requires factory FILE_DIFF unless requires_code false",
+        ["set_pass refuses code units with empty factory git diff", "--force still works"],
+    ),
+    (
+        "halo drive status JSON includes loop iteration and feature next id",
+        ["drive status prints loop.iteration and next feature id"],
+    ),
+    (
+        "Auto-commit unit helper refuses .halo/ and stages only factory paths",
+        ["halo commit-unit dry-run lists factory files only"],
+    ),
+    (
+        "cycle-smoke fails if tracked denylist paths appear in git ls-files",
+        ["already partly present; strengthen denylist check for secrets patterns"],
+    ),
+    (
+        "Independent Arena runner optional second-pass via subagent spawn flag",
+        ["halo arena documents dual-lens; optional --spawn-check flag stub"],
+    ),
+]
+
+
 def _default_compound_batch(ids: list[str]) -> list[dict[str, Any]]:
-    """Three small factory-upgrade units for the next compounding day."""
-    templates = [
-        (
-            "Cycle-smoke still green after latest factory commit",
-            ["bash scripts/halo-cycle-smoke.sh . exits 0", "evidence cert written"],
-        ),
-        (
-            "doctor --strict + py_compile remain clean",
-            ["halo doctor --strict exits 0", "python3 -m py_compile python/*.py"],
-        ),
-        (
-            "NEXT_PROMPT + baton name next pending feature id",
-            ["halo continue writes NEXT_PROMPT", "plan names next passes:false id"],
-        ),
-    ]
+    """Three factory-upgrade units (requires_code) for compounding day."""
     out: list[dict[str, Any]] = []
     for i, fid in enumerate(ids):
-        desc, steps = templates[i % len(templates)]
+        desc, steps = ROADMAP_TEMPLATES[i % len(ROADMAP_TEMPLATES)]
         out.append(
             {
                 "id": fid,
+                "requires_code": True,
                 "description": desc,
                 "category": "dogfood",
                 "passes": False,
@@ -383,33 +399,19 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         str(f.get("description") or "").strip().lower() for f in feats if f.get("description")
     }
     batch_n = int(seed_meta.get("batch") or 0) + 1
-    # Prefer curated templates; skip descriptions already on the board
-    templates = [
-        "Harden cycle-smoke: fail if denylist paths appear in git status porcelain",
-        "NEXT_PROMPT includes budget check line + spend day_cycles",
-        "halo status prints feature remaining + drive.lock summary",
-        "Doctor error if autonomous without loop.json active",
-        "progress.jsonl tailed in SessionStart stderr boot line",
-        "Cycle-smoke still green after latest factory commit",
-        "doctor --strict + py_compile remain clean",
-        "NEXT_PROMPT + baton name next pending feature id",
-        "halo drive status JSON includes loop iteration and feature next id",
-        "Stop hook writes .halo/logs/stop-last.json with spawn result",
-        "features summary includes compound seed meta when present",
-        "README Path H5 documents cycle-smoke after each unit",
-    ]
-    picks: list[str] = []
-    for i in range(len(templates) * 2):
-        desc = templates[(batch_n + i) % len(templates)]
-        if desc.strip().lower() in existing_desc or desc in picks:
+    # Real roadmap only — ban pure smoke/verify templates (anti-thrash)
+    picks: list[tuple[str, list[str]]] = []
+    for i in range(len(ROADMAP_TEMPLATES) * 2):
+        desc, steps = ROADMAP_TEMPLATES[(batch_n + i) % len(ROADMAP_TEMPLATES)]
+        if desc.strip().lower() in existing_desc or any(desc == p[0] for p in picks):
             continue
-        picks.append(desc)
+        picks.append((desc, steps))
         if len(picks) >= 3:
             break
     if not picks:
-        return {"seeded": False, "reason": "no_new_templates", "day": today}
+        return {"seeded": False, "reason": "no_new_roadmap", "day": today}
     new_feats: list[dict[str, Any]] = []
-    for desc in picks:
+    for desc, steps in picks:
         fid = _next_d_id(existing)
         existing.add(fid)
         new_feats.append(
@@ -417,13 +419,11 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
                 "id": fid,
                 "description": desc,
                 "category": "dogfood",
+                "requires_code": True,
                 "passes": False,
                 "milestone": f"M-compound-{batch_n}",
-                "steps": [
-                    f"Implement: {desc}",
-                    "Run halo cycle-smoke .",
-                    "Evidence + features pass",
-                ],
+                "steps": steps
+                + ["Factory code diff required", "Run halo cycle-smoke .", "Evidence + features pass"],
             }
         )
     append_features(repo, new_feats)
