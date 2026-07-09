@@ -401,6 +401,18 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                         "item": "dogfood autonomous with empty .halo/trajectories — land a trajectory GT-###",
                     }
                 )
+            # D117: scores and trajectories should stay in step (skip both-zero)
+            if n != tn and not (n == 0 and tn == 0):
+                issues.append(
+                    {
+                        "level": "warn",
+                        "code": "scores_trajectories_diverge",
+                        "item": (
+                            f"dogfood autonomous scores_count={n} "
+                            f"trajectories_count={tn} — keep in step"
+                        ),
+                    }
+                )
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
