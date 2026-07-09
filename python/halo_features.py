@@ -737,6 +737,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "scores_trajectories_match bool when summary available",
         ],
     ),
+    # Batch 32+ — arena latest ids + features fail counts + seed surface
+    (
+        "halo arena JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "arena stdout or cert JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo features fail JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "features fail stdout JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool after mark",
+        ],
+    ),
+    (
+        "halo features seed JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "seed stdout JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
 ]
 
 

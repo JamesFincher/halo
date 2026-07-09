@@ -209,6 +209,7 @@ def arena_score_fields(repo: Path) -> dict[str, Any]:
     """Arena verify JSON score culture for operators + inject.
 
     D150: scores_count / trajectories_count / scores_trajectories_match
+    D151: latest_score_id / latest_trajectory_id (null when empty/missing)
     top-level on stdout and .halo/arena/{id}.json (not only nested in feature_summary).
     """
     try:
@@ -223,12 +224,17 @@ def arena_score_fields(repo: Path) -> dict[str, Any]:
             "scores_count": sc,
             "trajectories_count": tc,
             "scores_trajectories_match": match,
+            # D151: latest ids explicitly surfaced (null when dirs empty/missing)
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
             "scores_count": 0,
             "trajectories_count": 0,
             "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
         }
 
 
@@ -237,7 +243,7 @@ def verify(repo: Path, feature_id: str) -> dict[str, Any]:
     a = pass_a_adversarial(repo, feature_id)
     b = pass_b_constructive(repo, feature_id)
     final = consensus(a, b)
-    # D150: merge arena_score_fields (counts+match) into verify report
+    # D150–D151: merge arena_score_fields (counts+match + latest ids) into verify report
     report = {
         "cert": "VERIFIER_APPROVED" if final == "APPROVED" else "VERIFIER_NOT_APPROVED",
         "feature_id": feature_id,
