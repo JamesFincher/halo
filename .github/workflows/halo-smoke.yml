@@ -1,0 +1,72 @@
+name: halo-smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python
+        run: python3 -m py_compile python/*.py python/scaffold/*.py
+
+      - name: Doctor (factory)
+        run: |
+          export HALO_SYSTEM="$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE/python"
+          python3 python/halo_doctor.py --halo-system "$GITHUB_WORKSPACE" --repo "$GITHUB_WORKSPACE" --strict
+
+      - name: No dogfood artifacts tracked
+        run: |
+          # Clones must never ship self-instance control plane
+          if git ls-files | grep -E '^\.halo/|^init\.sh$|^halo-health\.json$'; then
+            echo "ERROR: dogfood meta paths are tracked — fix .gitignore / untrack"
+            git ls-files | grep -E '^\.halo/|^init\.sh$|^halo-health\.json$' || true
+            exit 1
+          fi
+          echo "clean: no dogfood paths tracked"
+
+      - name: Unit smoke (budget / features / arena / commit dry)
+        run: |
+          export PYTHONPATH="$GITHUB_WORKSPACE/python"
+          TMP=$(mktemp -d)
+          python3 python/halo_state.py init --repo "$TMP" --force
+          # seed one feature
+          python3 - <<PY
+          import json
+          from pathlib import Path
+          p = Path("$TMP") / ".halo" / "feature-list.json"
+          p.write_text(json.dumps({
+            "version": 1,
+            "features": [{
+              "id": "S999",
+              "description": "ci smoke feature",
+              "passes": False,
+              "steps": ["has evidence"]
+            }]
+          }, indent=2))
+          ev = Path("$TMP") / ".halo" / "evidence"
+          ev.mkdir(parents=True, exist_ok=True)
+          (ev / "S999-green.json").write_text('{"exit_code":0,"ok":true}\n')
+          PY
+          python3 python/halo_features.py pass --repo "$TMP" --id S999 --evidence "$TMP/.halo/evidence/S999-green.json"
+          python3 python/halo_budget.py check --repo "$TMP"
+          python3 python/halo_arena.py --repo "$TMP" verify --id S999
+          python3 python/halo_ratchet.py --repo "$TMP" --json
+          # bare pass without evidence must fail
+          python3 python/halo_features.py fail --repo "$TMP" --id S999
+          if python3 python/halo_features.py pass --repo "$TMP" --id S999; then
+            echo "ERROR: pass without evidence should fail"
+            exit 1
+          fi
+          echo "unit smoke ok"

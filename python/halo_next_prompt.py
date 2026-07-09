@@ -283,8 +283,10 @@ PHASE_PLAYBOOK: dict[str, dict[str, Any]] = {
             "Write .halo/plans/Sxxx-plan.md with AC and files.",
             "RED test → implement min code → GREEN full suite. Never delete tests (ratchet).",
             "Write GREEN evidence: .halo/evidence/Sxxx-green.json (exit_code:0).",
+            "Arena: halo arena --id Sxxx (must APPROVED before pass).",
             "Mark pass only via: halo features pass --id Sxxx --evidence .halo/evidence/Sxxx-green.json",
-            "Append progress; baton; autonomous-log; git commit this unit when safe.",
+            "Append progress; baton; autonomous-log.",
+            "Safe commit: halo commit-unit --id Sxxx (never force-adds dogfood .halo/).",
             "ONE unit only this turn (unless tiny residual fix).",
         ],
         "dont": [

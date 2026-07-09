@@ -128,5 +128,13 @@ From peer postmortems + Anthropic:
 | G35 | CLAUDE.md dual pointer | **Fixed:** template + init copy |
 | — | Push pollution from self-instance | **Fixed:** ignore entire `.halo/`, `/init.sh`, `/halo-health.json`, `/HALO.md` |
 
-Still open: G06 Arena, G11 auto-commit, G13 CI (dogfood S006–S008).
+Still open (post-M1 polish): multi-agent LLM Arena (beyond deterministic dual lens), fresh-session Ralph mode, browser E2E mandate.
+
+### Closed in 0.7.0 (dogfood M1 complete)
+
+| ID | Gap | Status |
+|----|-----|--------|
+| G06 | Arena independent verify | **Fixed:** `halo_arena.py` dual-lens A/B + `halo arena` |
+| G11 | Auto-commit per unit | **Fixed:** `halo_commit.py` skips gitignored dogfood |
+| G13 | CI smoke | **Fixed:** `.github/workflows/halo-smoke.yml` + dogfood-track guard |
 

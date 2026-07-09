@@ -192,6 +192,24 @@ mkdir -p "$TARGET"
 # Agent: skill halo-go — defaults only, no optional questions
 ```
 
+### Path H5 — Dogfood (build Halo with Halo)
+
+Allowed **only when explicit**. TARGET = this factory repo.
+
+```bash
+export HALO_SYSTEM=~/code/halo
+cd "$HALO_SYSTEM"
+./scripts/halo init .          # creates local .halo/ (gitignored)
+./scripts/halo go . --max 30   # arms true loop on Halo itself
+# Work feature-list items; polish the factory
+```
+
+**Clone hygiene (non-negotiable):**  
+The factory `.gitignore` ignores **all of** `.halo/`, plus dogfood leftovers (`/init.sh`, `/halo-health.json`, `/HALO.md`).  
+Maintainers **never** `git add -f .halo/`. CI fails if dogfood paths are tracked.  
+
+When someone clones Halo to use on *their* product, they get skills/python/hooks/docs only — **not** our self-instance baton, evidence, specs, or loop counters. Their product’s `.halo/` lives in *their* TARGET repo.
+
 ---
 
 ## 3. What “bootstrapped” means (definition of ready)

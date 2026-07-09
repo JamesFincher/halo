@@ -55,6 +55,8 @@ REQUIRED_CLI = [
     "progress",
     "budget",
     "ratchet",
+    "arena",
+    "commit-unit",
     "loop",
 ]
 
@@ -77,6 +79,8 @@ REQUIRED_PYTHON = [
     "halo_lock.py",
     "halo_budget.py",
     "halo_ratchet.py",
+    "halo_arena.py",
+    "halo_commit.py",
 ]
 
 
@@ -124,6 +128,46 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
         for needle in ("halo go", "autonomous", "probe", "NEXT_PROMPT", "self-prompt"):
             if needle.lower() not in w.lower():
                 issues.append({"level": "warn", "code": "workflows_gap", "item": needle})
+
+    # Factory cleanliness: dogfood control plane must never be git-tracked
+    # (clones of Halo are for use on *other* projects — not full of self-instance state)
+    if (halo_sys / "python" / "halo_state.py").exists() and (halo_sys / ".git").exists():
+        try:
+            import subprocess
+
+            tracked = subprocess.check_output(
+                ["git", "ls-files"],
+                cwd=halo_sys,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            bad = []
+            for line in tracked.splitlines():
+                if line.startswith(".halo/") or line in (
+                    "init.sh",
+                    "halo-health.json",
+                ):
+                    bad.append(line)
+            if bad:
+                issues.append(
+                    {
+                        "level": "error",
+                        "code": "dogfood_tracked",
+                        "item": bad[:20],
+                    }
+                )
+            # .gitignore must exclude .halo/
+            gi = halo_sys / ".gitignore"
+            if gi.exists() and ".halo/" not in gi.read_text(encoding="utf-8"):
+                issues.append(
+                    {
+                        "level": "error",
+                        "code": "gitignore_missing_halo",
+                        "item": "factory .gitignore must ignore .halo/ for dogfood",
+                    }
+                )
+        except (subprocess.CalledProcessError, OSError, FileNotFoundError):
+            pass
 
     return issues
 

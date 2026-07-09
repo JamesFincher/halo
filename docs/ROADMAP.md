@@ -51,15 +51,15 @@
 - [x] Hard budget (iter/daily/wall) + test ratchet mechanical
 - [x] `halo go` arms true Stop loop (`loop.json`)
 - [x] Dogfood-safe: factory never publishes `.halo/` self-instance state
-- [ ] Port Arena independent verify runner (dogfood S006)
-- [ ] Auto-commit per story unit (S007)
+- [x] Arena dual-lens verify (`halo_arena.py` / `halo arena`)
+- [x] Safe auto-commit per unit (`halo_commit.py` / `halo commit-unit`)
 
 ## Slice 4 — Walk-away runner
 
 - [x] `scripts/halo` surface (status/stop/resume/…)
 - [x] Runner lock helper (`.halo/runner.lock`)
 - [x] Daily/iter/wall budget hard stop (`halo_budget.py`)
-- [ ] CI smoke workflow (S008)
+- [x] CI smoke workflow (`.github/workflows/halo-smoke.yml`)
 - [ ] Human dashboard notes / voice optional
 
 ## Non-goals near-term

@@ -38,9 +38,12 @@ description: One autonomous build cycle — pick story/milestone unit, TDD, veri
 ## After each unit
 
 ```bash
+python3 $HALO_SYS/python/halo_arena.py --repo . verify --id Sxxx   # dual-lens; need APPROVED
 python3 $HALO_SYS/python/halo_progress.py add --repo . --event story_done --note "Sxxx …"
 python3 $HALO_SYS/python/halo_next_prompt.py --repo . --write
-# prefer: git commit -m "Sxxx: …"  (factory code only — never force-add gitignored .halo/ dogfood)
+# safe commit (skips gitignored dogfood .halo/ automatically):
+python3 $HALO_SYS/python/halo_commit.py --repo . --id Sxxx --message "…"
+# or: halo commit-unit . --id Sxxx --message "…"
 ```
 
 ## Hard stops
