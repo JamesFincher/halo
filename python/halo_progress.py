@@ -89,10 +89,18 @@ def main() -> None:
     a.add_argument("--note", default="")
     a.add_argument("--json", default="{}", help="extra fields as JSON object")
 
+    a.add_argument(
+        "--feature-id",
+        default="",
+        help="optional feature id recorded on unit events (D107)",
+    )
+
     def do_add(args: argparse.Namespace) -> None:
         detail = json.loads(args.json)
         if args.note:
             detail["note"] = args.note
+        if getattr(args, "feature_id", None):
+            detail["feature_id"] = args.feature_id
         path = append(Path(args.repo), args.event, detail)
         print(json.dumps({"ok": True, "path": str(path)}, indent=2))
 

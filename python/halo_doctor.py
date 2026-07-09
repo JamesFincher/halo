@@ -375,6 +375,21 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
         # D078: stale watchdog heartbeat while autonomous+active loop
         if loop_active:
             issues.extend(_stale_watchdog_issues(repo))
+        # D108: dogfood autonomous should accumulate cycle scores over time
+        dogfood = bool(
+            state.get("dogfood") or state.get("dogfood_mode") == "compounding"
+        )
+        if dogfood and loop_active:
+            scores = repo / ".halo" / "scores"
+            n = len(list(scores.glob("S*.json"))) if scores.is_dir() else 0
+            if n == 0:
+                issues.append(
+                    {
+                        "level": "warn",
+                        "code": "scores_empty",
+                        "item": "dogfood autonomous with empty .halo/scores — land a pass to write S###",
+                    }
+                )
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():

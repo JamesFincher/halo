@@ -75,6 +75,10 @@ def study(repo: Path) -> dict[str, Any]:
     next_f = feats.get("next") if isinstance(feats, dict) else None
     seed_meta = _json(repo / ".halo" / "compound-seed.json")
     roadmap_exhausted = seed_meta.get("last_reason") == "no_new_roadmap"
+    scores_dir = repo / ".halo" / "scores"
+    scores_count = (
+        len(list(scores_dir.glob("S*.json"))) if scores_dir.is_dir() else 0
+    )
     plan = {
         "at": utc_now(),
         "phase": state.get("phase"),
@@ -91,23 +95,40 @@ def study(repo: Path) -> dict[str, Any]:
             "next": next_f,
         },
         "roadmap_exhausted": roadmap_exhausted,
+        "scores_count": scores_count,
+        "scores_missing": scores_count == 0,
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),
-        "recommendation": _recommend(repo, state, feats, factory_dirty),
+        "recommendation": _recommend(
+            repo, state, feats, factory_dirty, scores_count=scores_count
+        ),
     }
     return plan
 
 
-def _recommend(repo: Path, state: dict, feats: dict, dirty: list[str]) -> str:
+def _recommend(
+    repo: Path,
+    state: dict,
+    feats: dict,
+    dirty: list[str],
+    *,
+    scores_count: int | None = None,
+) -> str:
     if (state.get("status") or "").upper() in ("PAUSED", "ESCALATED"):
         return "STOP: status not ACTIVE"
     nxt = feats.get("next") if isinstance(feats, dict) else None
     if isinstance(nxt, dict) and nxt.get("id"):
         req = " (requires_code — must land factory FILE_DIFF)" if nxt.get("requires_code") else ""
         return f"ONE unit: {nxt.get('id')} — {nxt.get('description')}{req}"
+    dogfood = bool(state.get("dogfood") or state.get("dogfood_mode") == "compounding")
+    if dogfood and scores_count == 0:
+        return (
+            "scores_missing: run a requires_code unit so set_pass writes "
+            ".halo/scores/S###.json then continue compounding"
+        )
     if feats.get("all_pass"):
-        if state.get("dogfood") or state.get("dogfood_mode") == "compounding":
+        if dogfood:
             # Exhausted templates → expand ROADMAP, do not thrash smoke units
             reason = _json(repo / ".halo" / "compound-seed.json").get("last_reason")
             if reason == "no_new_roadmap":
