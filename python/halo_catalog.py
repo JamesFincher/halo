@@ -66,6 +66,8 @@ LIFECYCLE_BASELINE: list[dict[str, Any]] = [
         "purpose": "persistent data store",
         "provider": "Postgres (Neon/Supabase/etc)",
         "blocking": True,
+        # Only required for full-stack SaaS profiles — not factory dogfood / existing CLI / pure agent
+        "stack_profiles": ["web-saas", "nextjs", "nextjs-saas", "vite", "api-ui", "fastapi"],
         "credentials": ["DATABASE_URL"],
         "cli": [],
         "cli_auth": [],
@@ -78,6 +80,7 @@ LIFECYCLE_BASELINE: list[dict[str, Any]] = [
         "provider": "Clerk",
         "blocking": True,
         "aliases": ["clerk", "authjs", "supabase-auth", "nextauth"],
+        "stack_profiles": ["web-saas", "nextjs", "nextjs-saas", "vite", "api-ui"],
         "credentials": ["CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
         "cli": [],
         "cli_auth": [],
@@ -209,5 +212,18 @@ def merge_integrations(
     if "git" in by_id:
         by_id["git"]["blocking"] = True
         by_id["git"].pop("optional_skip", None)
+
+    # Factory dogfood / pure tooling: stack "existing" or empty intake integrations
+    # should not force SaaS DB/auth. stack_profiles already soft-skips when set.
+    # If profile is existing/python-agent/halo with no integrations, skip saas blockers.
+    light = profile in ("existing", "python-agent", "halo", "python", "cli", "")
+    if light and not (intake_integrations or []):
+        for sid in ("database", "auth", "vercel", "stripe", "email", "sentry", "analytics"):
+            if sid in by_id and by_id[sid].get("blocking"):
+                by_id[sid]["blocking"] = False
+                by_id[sid]["optional_skip"] = True
+                by_id[sid]["skip_reason"] = (
+                    f"profile '{profile or 'none'}' without integrations — not required"
+                )
 
     return list(by_id.values())

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,29 @@ def _evidence_looks_green(path: Path) -> bool:
     return False
 
 
+def append_features(repo: Path, features: list[dict[str, Any]]) -> dict[str, Any]:
+    """Add features by id if missing (for milestone seeding under go)."""
+    data = load_list(repo)
+    existing = {f.get("id") for f in data.get("features") or []}
+    for f in features:
+        fid = f.get("id")
+        if not fid or fid in existing:
+            continue
+        row = {
+            "id": fid,
+            "description": f.get("description") or f.get("title") or fid,
+            "category": f.get("category") or "story",
+            "passes": False,
+            "steps": list(f.get("steps") or []),
+        }
+        if f.get("milestone"):
+            row["milestone"] = f["milestone"]
+        data.setdefault("features", []).append(row)
+        existing.add(fid)
+    save_list(repo, data)
+    return data
+
+
 def set_pass(
     repo: Path,
     feature_id: str,
@@ -263,6 +287,17 @@ def main() -> None:
     f.add_argument("--repo", default=".")
     f.add_argument("--id", required=True)
     f.set_defaults(func=lambda a: print(json.dumps(set_pass(Path(a.repo), a.id, False), indent=2)))
+
+    a = sub.add_parser("append", help="append features from JSON file or stdin")
+    a.add_argument("--repo", default=".")
+    a.add_argument("--file", default=None, help="JSON list or {features:[…]}")
+    def _append(args: argparse.Namespace) -> None:
+        raw = Path(args.file).read_text(encoding="utf-8") if args.file else sys.stdin.read()
+        obj = json.loads(raw)
+        feats = obj if isinstance(obj, list) else obj.get("features") or []
+        print(json.dumps(append_features(Path(args.repo), feats), indent=2))
+
+    a.set_defaults(func=_append)
 
     args = p.parse_args()
     args.func(args)

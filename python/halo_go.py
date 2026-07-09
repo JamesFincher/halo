@@ -180,16 +180,56 @@ def next_actions(repo: Path) -> list[str]:
             actions.append("halo ready --allow-degraded")
         else:
             actions.append("halo ready")
+    elif phase == "scaffold" and data.get("scaffold_profile"):
+        actions.append("scaffold already done — set phase build and continue features")
+        # treat as build for planning
+        phase = "build"
+        try:
+            from halo_features import summary as feature_summary
+            fs = feature_summary(repo)
+        except Exception:
+            fs = {}
+        if fs.get("all_pass") and fs.get("total", 0) > 0:
+            actions.append("feature-list all_pass — seed next milestone or complete")
+        else:
+            nxt = fs.get("next") or {}
+            fid = nxt.get("id") if isinstance(nxt, dict) else None
+            if fid:
+                actions.append(f"ONE unit: feature {fid}")
+            else:
+                actions.append("pick next passes:false feature")
     elif phase == "scaffold" or (
         data.get("readiness_verdict") in ("GO", "DEGRADED") and not data.get("scaffold_profile")
     ):
         actions.append("halo scaffold --profile auto --demo0 local --skip-ready-check")
     elif phase == "build":
-        n = data.get("autonomous_max_cycles") or 5
-        actions.append(f"run up to {n} halo-build cycles; no continue prompts")
-        actions.append("probe before any deploy URL share")
+        # Prefer machine feature-list over vague "run cycles"
+        try:
+            from halo_features import summary as feature_summary
+
+            fs = feature_summary(repo)
+        except Exception:  # noqa: BLE001
+            fs = {}
+        if fs.get("all_pass") and fs.get("total", 0) > 0:
+            actions.append(
+                "feature-list all_pass — either seed next milestone features "
+                "or set phase complete + emit <promise>HALO_COMPLETE</promise>"
+            )
+            actions.append("prefer: append M2 polish stories then continue; or complete")
+        else:
+            nxt = fs.get("next") or {}
+            fid = nxt.get("id") if isinstance(nxt, dict) else None
+            if fid:
+                actions.append(
+                    f"ONE unit: feature {fid} — TDD, evidence, arena, "
+                    f"halo features pass --id {fid} --evidence …, commit-unit"
+                )
+            else:
+                n = data.get("autonomous_max_cycles") or 5
+                actions.append(f"run up to {n} halo-build cycles; pick next passes:false feature")
+            actions.append("probe before any deploy URL share")
     elif phase == "complete":
-        actions.append("DONE: phase complete")
+        actions.append("DONE: phase complete — emit <promise>HALO_COMPLETE</promise> if loop armed")
     else:
         actions.append(f"advance from phase={phase} per WORKFLOWS.md without asking")
 
