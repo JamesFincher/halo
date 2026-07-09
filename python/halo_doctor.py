@@ -455,6 +455,35 @@ def network_ok() -> bool:
         return False
 
 
+def report_score_fields(repo: Path) -> dict[str, Any]:
+    """D145–D146: scores/trajectories counts + match + latest ids on doctor JSON."""
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(repo, compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
+        return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
+        }
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_doctor")
     p.add_argument("--halo-system", default=None)
@@ -473,6 +502,8 @@ def main() -> None:
         issues.append({"level": "warn", "code": "network", "item": "example.com unreachable"})
 
     errors = [i for i in issues if i["level"] == "error"]
+    # D145: scores_count / trajectories_count / scores_trajectories_match on doctor JSON
+    # D146: latest_score_id / latest_trajectory_id (null when empty/missing)
     report = {
         "ok": len(errors) == 0,
         "halo_system": str(halo_sys),
@@ -480,6 +511,7 @@ def main() -> None:
         "network": net,
         "error_count": len(errors),
         "issues": issues,
+        **report_score_fields(repo),
     }
 
     if args.json:

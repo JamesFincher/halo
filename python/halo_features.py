@@ -693,6 +693,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "null when scores/trajectories dirs empty or missing",
         ],
     ),
+    # Batch 30+ — doctor JSON score culture (operators + inject)
+    (
+        "halo doctor JSON report includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "doctor --json top-level has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool when summary available",
+        ],
+    ),
+    (
+        "halo doctor JSON report includes latest_score_id and latest_trajectory_id",
+        [
+            "doctor --json top-level has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
+    (
+        "halo features pass JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "features pass stdout JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool after mark",
+        ],
+    ),
 ]
 
 
