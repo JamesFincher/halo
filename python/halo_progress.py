@@ -187,6 +187,43 @@ def tail(repo: Path, n: int = 15) -> list[dict[str, Any]]:
     return out
 
 
+def progress_add_score_fields(
+    repo: Path, row: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """D172/D173: unit-event progress add stdout score-culture fields.
+
+    Prefer values from the just-persisted jsonl row when present so stdout
+    mirrors progress.jsonl. Fall back to live scans for missing keys.
+    latest_* are None when scores/trajectories dirs are empty or missing.
+    """
+    row = dict(row or {})
+    sc = int(row.get("scores_count") if "scores_count" in row else scores_count(repo))
+    tc = int(
+        row.get("trajectories_count")
+        if "trajectories_count" in row
+        else trajectories_count(repo)
+    )
+    if "scores_trajectories_match" in row:
+        match = bool(row.get("scores_trajectories_match"))
+    else:
+        match = sc == tc
+    return {
+        "scores_count": sc,
+        "trajectories_count": tc,
+        "scores_trajectories_match": match,
+        "latest_score_id": (
+            row.get("latest_score_id")
+            if "latest_score_id" in row
+            else latest_score_id(repo)
+        ),
+        "latest_trajectory_id": (
+            row.get("latest_trajectory_id")
+            if "latest_trajectory_id" in row
+            else latest_trajectory_id(repo)
+        ),
+    }
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_progress")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -218,29 +255,7 @@ def main() -> None:
             # Re-read last jsonl row so stdout mirrors what was persisted
             last = tail(repo, 1)
             row = last[-1] if last else {}
-            sc = int(row.get("scores_count") if "scores_count" in row else scores_count(repo))
-            tc = int(
-                row.get("trajectories_count")
-                if "trajectories_count" in row
-                else trajectories_count(repo)
-            )
-            if "scores_trajectories_match" in row:
-                match = bool(row.get("scores_trajectories_match"))
-            else:
-                match = sc == tc
-            out["scores_count"] = sc
-            out["trajectories_count"] = tc
-            out["scores_trajectories_match"] = match
-            out["latest_score_id"] = (
-                row.get("latest_score_id")
-                if "latest_score_id" in row
-                else latest_score_id(repo)
-            )
-            out["latest_trajectory_id"] = (
-                row.get("latest_trajectory_id")
-                if "latest_trajectory_id" in row
-                else latest_trajectory_id(repo)
-            )
+            out.update(progress_add_score_fields(repo, row))
         print(json.dumps(out, indent=2))
 
     a.set_defaults(func=do_add)
