@@ -390,6 +390,17 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                         "item": "dogfood autonomous with empty .halo/scores — land a pass to write S###",
                     }
                 )
+            # D114: dogfood autonomous should accumulate golden trajectories
+            traj = repo / ".halo" / "trajectories"
+            tn = len(list(traj.glob("GT-*.json"))) if traj.is_dir() else 0
+            if tn == 0:
+                issues.append(
+                    {
+                        "level": "warn",
+                        "code": "trajectories_empty",
+                        "item": "dogfood autonomous with empty .halo/trajectories — land a trajectory GT-###",
+                    }
+                )
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
