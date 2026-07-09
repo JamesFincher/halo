@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Evidence certificate validator — file existence is not enough."""
+"""Evidence certificate validator — file existence is not enough.
+
+D170: --check / check JSON includes scores_count / trajectories_count /
+scores_trajectories_match (true when equal, including both zero).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,43 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def check_score_fields(repo: Path) -> dict[str, Any]:
+    """Score culture fields for evidence check JSON.
+
+    D170: scores_count / trajectories_count / scores_trajectories_match.
+    """
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(Path(repo), compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
+        return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
+        }
+
+
+def _infer_repo(path: Path) -> Path:
+    """Walk parents for a .halo dir; else cwd."""
+    path = Path(path).resolve()
+    for p in [path.parent, *path.parents]:
+        if (p / ".halo").is_dir():
+            return p
+    return Path.cwd().resolve()
 
 
 def _read(path: Path) -> str:
@@ -194,20 +235,47 @@ def validate_repo(repo: Path, require: list[str] | None = None) -> dict[str, Any
     }
 
 
-def check_file(path: Path) -> dict[str, Any]:
-    """Validate a single evidence file; JSON without cert fails (D082)."""
+def check_file(path: Path, repo: Path | None = None) -> dict[str, Any]:
+    """Validate a single evidence file; JSON without cert fails (D082).
+
+    D170: merges scores_count / trajectories_count / scores_trajectories_match
+    from repo score culture (repo arg, else inferred from path / cwd).
+    """
     path = Path(path)
+    score_repo = Path(repo).resolve() if repo is not None else _infer_repo(path)
+    score_fields = check_score_fields(score_repo)
     if not path.is_file():
-        return {"ok": False, "error": "missing file", "path": str(path)}
+        return {
+            "ok": False,
+            "error": "missing file",
+            "path": str(path),
+            **score_fields,
+        }
     data = _json(path)
     if data is not None:
         ok, msg = validate_cert_schema(data)
-        return {"ok": ok, "message": msg, "path": str(path), "cert": data.get("cert")}
+        return {
+            "ok": ok,
+            "message": msg,
+            "path": str(path),
+            "cert": data.get("cert"),
+            **score_fields,
+        }
     # plain text logs: allow if non-empty (legacy)
     text = _read(path)
     if text.strip():
-        return {"ok": True, "message": "legacy text evidence", "path": str(path)}
-    return {"ok": False, "message": "empty evidence", "path": str(path)}
+        return {
+            "ok": True,
+            "message": "legacy text evidence",
+            "path": str(path),
+            **score_fields,
+        }
+    return {
+        "ok": False,
+        "message": "empty evidence",
+        "path": str(path),
+        **score_fields,
+    }
 
 
 def check_cert_schema(path: Path) -> tuple[bool, str]:
@@ -231,9 +299,16 @@ def main() -> None:
         # subcommand style used by unit tests
         p = argparse.ArgumentParser(prog="halo_evidence check")
         p.add_argument("--file", required=True, help="evidence file path")
+        p.add_argument("--repo", default=".", help="product repo root for score culture")
         a = p.parse_args(argv[1:])
         ok, msg = check_cert_schema(Path(a.file))
-        print(json.dumps({"ok": ok, "message": msg, "path": a.file}, indent=2))
+        report = {
+            "ok": ok,
+            "message": msg,
+            "path": a.file,
+            **check_score_fields(Path(a.repo).resolve()),
+        }
+        print(json.dumps(report, indent=2))
         raise SystemExit(0 if ok else 2)
 
     p = argparse.ArgumentParser(prog="halo_evidence")
@@ -248,7 +323,7 @@ def main() -> None:
     )
     args = p.parse_args()
     if args.check:
-        report = check_file(Path(args.check))
+        report = check_file(Path(args.check), repo=Path(args.repo).resolve())
         print(json.dumps(report, indent=2))
         raise SystemExit(0 if report.get("ok") else 2)
     report = validate_repo(Path(args.repo).resolve(), require=args.require or None)
