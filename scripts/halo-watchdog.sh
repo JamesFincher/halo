@@ -2,7 +2,8 @@
 # Continuous drive without the 60s Grok /loop floor.
 # Runs planner (refresh NEXT_PROMPT) then ensures a headless builder is alive.
 # Usage: halo-watchdog.sh [repo] [sleep_seconds]
-# Stop: kill the watchdog PID or: halo go --off && pkill -f halo-watchdog
+# Stop: kill the watchdog PID or: scripts/cancel-halo-loop.sh / halo go --off
+# Single-instance: refuses to start if pidfile PID is still alive (D073).
 set -euo pipefail
 HALO_SYS="${HALO_SYSTEM:-$(cd "$(dirname "$0")/.." && pwd)}"
 ROOT="$(cd "${1:-.}" && pwd)"
@@ -13,8 +14,17 @@ PY="${PYTHON:-python3}"
 cd "$ROOT"
 mkdir -p "$ROOT/.halo/logs"
 
+PIDFILE="$ROOT/.halo/logs/watchdog.pid"
+if [[ -f "$PIDFILE" ]]; then
+  old="$(cat "$PIDFILE" 2>/dev/null || true)"
+  if [[ -n "${old:-}" ]] && kill -0 "$old" 2>/dev/null && [[ "$old" != "$$" ]]; then
+    echo "[watchdog] refuse: already running pid=$old (pidfile $PIDFILE)" >&2
+    exit 3
+  fi
+fi
+
 echo "[watchdog] root=$ROOT sleep=${SLEEP}s pid=$$  stop: halo go --off; kill \$(cat .halo/logs/watchdog.pid)"
-echo $$ > "$ROOT/.halo/logs/watchdog.pid"
+echo $$ > "$PIDFILE"
 
 while true; do
   if [[ -f "$ROOT/.halo/loop.json" ]]; then

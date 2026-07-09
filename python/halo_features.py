@@ -220,7 +220,8 @@ def _next_d_ids(features: list[dict[str, Any]], n: int = 3) -> list[str]:
     return [f"D{start + i:03d}" for i in range(n)]
 
 
-# Real factory upgrades only — never pure "still green" smoke (anti-thrash)
+# Real factory upgrades only — never pure "still green" smoke (anti-thrash).
+# When all descs already exist, seed returns no_new_roadmap — expand this list.
 ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
     (
         "Stop hook writes .halo/logs/stop-last.json with spawn result",
@@ -245,6 +246,46 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
     (
         "Independent Arena runner optional second-pass via subagent spawn flag",
         ["halo arena documents dual-lens; optional --spawn-check flag stub"],
+    ),
+    # Batch 6+ — keep compounding when earlier templates already passed
+    (
+        "Watchdog single-instance: exit if pidfile PID is still alive",
+        [
+            "second watchdog start exits non-zero when pidfile process lives",
+            "pidfile written only by the winning instance",
+        ],
+    ),
+    (
+        "cycle-smoke runs unittest discover and fails on non-zero",
+        [
+            "halo-cycle-smoke.sh invokes python -m unittest discover -s python/tests",
+            "failure exits non-zero before features summary",
+        ],
+    ),
+    (
+        "drive status JSON includes watchdog_pid and heartbeat_age_sec",
+        [
+            "status reads .halo/logs/watchdog.pid + watchdog-heartbeat.json",
+            "heartbeat_age_sec is null when heartbeat missing",
+        ],
+    ),
+    (
+        "Planner surfaces no_new_roadmap when compound templates exhausted",
+        [
+            "recommendation mentions expand ROADMAP_TEMPLATES when seed blocked",
+            "compound-seed.json records last_reason=no_new_roadmap",
+        ],
+    ),
+    (
+        "scripts/halo features seed forwards --force to halo_features",
+        ["halo features seed --force works from CLI", "help lists seed subcommand"],
+    ),
+    (
+        "Doctor warns when autonomous loop has stale watchdog heartbeat",
+        [
+            "strict mode surfaces stale heartbeat older than 90s",
+            "fresh heartbeat under 90s is not a doctor error",
+        ],
     ),
 ]
 
@@ -453,6 +494,17 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         if len(picks) >= 3:
             break
     if not picks:
+        # Persist reason so planner/drive can surface exhausted templates
+        seed_meta = {
+            **seed_meta,
+            "last_seed_day": last_day or seed_meta.get("last_seed_day"),
+            "last_reason": "no_new_roadmap",
+            "last_reason_at": utc_now(),
+            "day": today,
+            "batch": int(seed_meta.get("batch") or 0),
+        }
+        seed_p.parent.mkdir(parents=True, exist_ok=True)
+        seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")
         return {"seeded": False, "reason": "no_new_roadmap", "day": today}
     new_feats: list[dict[str, Any]] = []
     for desc, steps in picks:
@@ -482,6 +534,7 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
         "batch": batch_n,
         "seeded_ids": [f["id"] for f in new_feats],
         "at": utc_now(),
+        "last_reason": "seeded",
     }
     seed_p.parent.mkdir(parents=True, exist_ok=True)
     seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")

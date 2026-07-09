@@ -91,12 +91,12 @@ def study(repo: Path) -> dict[str, Any]:
         "factory_dirty_count": len(factory_dirty),
         "factory_dirty_sample": factory_dirty[:12],
         "git_log": git.get("log"),
-        "recommendation": _recommend(state, feats, factory_dirty),
+        "recommendation": _recommend(repo, state, feats, factory_dirty),
     }
     return plan
 
 
-def _recommend(state: dict, feats: dict, dirty: list[str]) -> str:
+def _recommend(repo: Path, state: dict, feats: dict, dirty: list[str]) -> str:
     if (state.get("status") or "").upper() in ("PAUSED", "ESCALATED"):
         return "STOP: status not ACTIVE"
     nxt = feats.get("next") if isinstance(feats, dict) else None
@@ -105,6 +105,13 @@ def _recommend(state: dict, feats: dict, dirty: list[str]) -> str:
         return f"ONE unit: {nxt.get('id')} — {nxt.get('description')}{req}"
     if feats.get("all_pass"):
         if state.get("dogfood") or state.get("dogfood_mode") == "compounding":
+            # Exhausted templates → expand ROADMAP, do not thrash smoke units
+            reason = _json(repo / ".halo" / "compound-seed.json").get("last_reason")
+            if reason == "no_new_roadmap":
+                return (
+                    "all_pass+no_new_roadmap: expand ROADMAP_TEMPLATES in "
+                    "halo_features.py then force seed and implement first requires_code unit"
+                )
             return "all_pass: force compound seed roadmap batch then implement first requires_code unit"
         return "all_pass: complete or seed next milestone"
     if dirty:

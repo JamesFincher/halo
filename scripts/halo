@@ -47,7 +47,7 @@ halo — autonomous product development system
   link-skills [path]       Symlink Halo skills into product .grok/skills
   loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
   loop-cancel [path]       Disarm true loop
-  features [path] …        sync|summary|pass --id Sxxx [--evidence PATH|--force]
+  features [path] …        sync|summary|pass|fail|seed [--force] [--id …]
   progress [path] …        add|tail progress log
   budget [path] …          check|show|record|halt (hard spend caps)
   ratchet [path]           test-ratchet scan (deleted tests)
@@ -454,7 +454,7 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     rest=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        sync|summary|pass|fail) rest+=("$1"); shift ;;
+        sync|summary|pass|fail|seed) rest+=("$1"); shift ;;
         --*) rest+=("$1"); shift ;;
         *) path="$(repo_arg "$1")"; shift ;;
       esac
@@ -473,7 +473,8 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
       summary) "$PY" "$HALO_SYSTEM/python/halo_features.py" summary --repo "$path" ;;
       pass) "$PY" "$HALO_SYSTEM/python/halo_features.py" pass --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
       fail) "$PY" "$HALO_SYSTEM/python/halo_features.py" fail --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
-      *) die "features: sync|summary|pass|fail" ;;
+      seed) "$PY" "$HALO_SYSTEM/python/halo_features.py" seed --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
+      *) die "features: sync|summary|pass|fail|seed" ;;
     esac
     ;;
 

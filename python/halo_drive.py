@@ -246,6 +246,41 @@ def spawn_headless(
     return meta
 
 
+def _watchdog_status(repo: Path) -> dict[str, Any]:
+    """PID + heartbeat age for continuous-drive observability (D075 roadmap)."""
+    repo = Path(repo).resolve()
+    pid_path = repo / ".halo" / "logs" / "watchdog.pid"
+    hb_path = repo / ".halo" / "logs" / "watchdog-heartbeat.json"
+    watchdog_pid: int | None = None
+    alive = False
+    if pid_path.is_file():
+        try:
+            raw = pid_path.read_text(encoding="utf-8").strip()
+            watchdog_pid = int(raw) if raw else None
+        except (ValueError, OSError):
+            watchdog_pid = None
+        if watchdog_pid is not None:
+            alive = _pid_alive(watchdog_pid)
+    age: float | None = None
+    hb = _json(hb_path)
+    at = hb.get("at") if isinstance(hb, dict) else None
+    if at:
+        try:
+            # tolerate trailing Z
+            ts = str(at).replace("Z", "+00:00")
+            then = datetime.fromisoformat(ts)
+            if then.tzinfo is None:
+                then = then.replace(tzinfo=timezone.utc)
+            age = max(0.0, (datetime.now(timezone.utc) - then).total_seconds())
+        except (TypeError, ValueError, OSError):
+            age = None
+    return {
+        "watchdog_pid": watchdog_pid,
+        "watchdog_alive": alive,
+        "heartbeat_age_sec": age,
+    }
+
+
 def scheduler_prompt(repo: Path) -> str:
     """Text for Grok /loop or scheduler_create — same-session inject."""
     return (
@@ -299,6 +334,7 @@ def main() -> None:
             }
         except Exception as e:  # noqa: BLE001
             feat_summary = {"error": str(e)}
+        wd = _watchdog_status(repo)
         print(
             json.dumps(
                 {
@@ -310,6 +346,9 @@ def main() -> None:
                         "active": loop.get("active"),
                     },
                     "features": feat_summary,
+                    "watchdog_pid": wd.get("watchdog_pid"),
+                    "watchdog_alive": wd.get("watchdog_alive"),
+                    "heartbeat_age_sec": wd.get("heartbeat_age_sec"),
                     "lock": _json(drive_lock_path(repo)),
                     "stale_clear": stale,
                     "last": _json(repo / ".halo" / "drive-last.json"),
