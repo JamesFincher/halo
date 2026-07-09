@@ -158,6 +158,46 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
             "item": "for /go + Stop loop: grok plugin install <halo-path> --trust",
         })
 
+    # D092: plugin.json must declare version
+    plugin_p = halo_sys / ".grok-plugin" / "plugin.json"
+    if plugin_p.is_file():
+        try:
+            pj = json.loads(plugin_p.read_text(encoding="utf-8"))
+            ver = pj.get("version")
+            if not ver or not str(ver).strip():
+                issues.append(
+                    {
+                        "level": "error",
+                        "code": "plugin_version_missing",
+                        "item": ".grok-plugin/plugin.json missing version",
+                    }
+                )
+            else:
+                issues.append(
+                    {
+                        "level": "info",
+                        "code": "plugin_version",
+                        "item": str(ver),
+                    }
+                )
+        except (OSError, json.JSONDecodeError):
+            issues.append(
+                {
+                    "level": "error",
+                    "code": "plugin_version_missing",
+                    "item": "plugin.json unreadable",
+                }
+            )
+    elif (halo_sys / "python" / "halo_state.py").exists():
+        # factory tree expected to ship plugin metadata
+        issues.append(
+            {
+                "level": "error",
+                "code": "plugin_version_missing",
+                "item": ".grok-plugin/plugin.json missing",
+            }
+        )
+
 
     # Factory cleanliness: dogfood control plane must never be git-tracked
     # (clones of Halo are for use on *other* projects — not full of self-instance state)

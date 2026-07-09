@@ -52,9 +52,25 @@ def work_remains(repo: Path) -> bool:
     loop = _json(repo / ".halo" / "loop.json")
     if loop and not loop.get("active", True):
         return False
-    # feature-list: if all pass and total>0, still allow drive if autonomous wants more
-    # (agent may seed next milestone). Only stop if loop inactive.
-    return bool(state.get("autonomous") or loop.get("active"))
+    if not (state.get("autonomous") or loop.get("active")):
+        return False
+    # D093: open backlog = work; all_pass + dogfood compounding = seed/expand still work
+    fl = _json(repo / ".halo" / "feature-list.json")
+    feats = fl.get("features") if isinstance(fl, dict) else None
+    if isinstance(feats, list) and feats:
+        pending = [f for f in feats if not f.get("passes")]
+        if pending:
+            return True
+        dogfood = bool(
+            state.get("dogfood")
+            or state.get("dogfood_mode") == "compounding"
+            or fl.get("dogfood")
+            or fl.get("dogfood_mode") == "compounding"
+        )
+        if dogfood:
+            return True  # compound seed / expand ROADMAP still useful
+        return False  # honest all_pass product → no drive work
+    return True
 
 
 def loop_active(repo: Path) -> bool:

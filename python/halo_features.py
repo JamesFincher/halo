@@ -338,6 +338,31 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
         "compound seed force refuses when backlog has open requires_code units",
         ["force does not seed over pending features", "reason not_all_pass"],
     ),
+    (
+        "progress add records factory dirty count on unit events",
+        ['progress.jsonl unit events include dirty_count field', 'zero when clean'],
+    ),
+    (
+        "halo doctor --strict fails if plugin.json missing version",
+        ['doctor error code plugin_version_missing', 'present version is info only'],
+    ),
+    (
+        "drive should-drive exits 0 only when loop active and work remains",
+        ['exit 1 when all_pass and not dogfood seed pending', 'exit 0 with open backlog'],
+    ),
+    (
+        "NEXT_PROMPT includes roadmap_exhausted flag when true",
+        ['prompt text mentions ROADMAP_TEMPLATES expand when exhausted'],
+    ),
+    (
+        "cancel-halo-loop disarms loop.json and kills drive pid if owned",
+        ['loop active false after cancel', 'watchdog pidfile cleared'],
+    ),
+    (
+        "arena --spawn-check writes ARENA_SPAWN_CHECK cert with feature id",
+        ['evidence file contains cert and feature', 'CLI exit 0 on APPROVED'],
+    )
+
 ]
 
 
