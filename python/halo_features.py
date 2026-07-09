@@ -226,6 +226,13 @@ def set_pass(
     if not found:
         raise SystemExit(f"unknown feature id: {feature_id}")
     save_list(repo, data)
+    # Keep markdown STORIES in sync with machine feature-list (S015)
+    try:
+        from halo_stories_sync import sync as stories_sync
+
+        stories_sync(repo)
+    except Exception:  # noqa: BLE001
+        pass
     return data
 
 

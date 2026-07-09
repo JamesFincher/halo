@@ -71,8 +71,41 @@ def drive_lock_path(repo: Path) -> Path:
     return repo / ".halo" / "drive.lock"
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def clear_stale_drive_lock(repo: Path) -> dict[str, Any]:
+    """Remove drive.lock if PID dead or expired (S016)."""
+    lp = drive_lock_path(repo)
+    if not lp.exists():
+        return {"cleared": False, "reason": "absent"}
+    try:
+        data = json.loads(lp.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        lp.unlink(missing_ok=True)
+        return {"cleared": True, "reason": "corrupt"}
+    now = time.time()
+    pid = data.get("pid")
+    expired = float(data.get("expires_at") or 0) <= now
+    alive = bool(pid) and _pid_alive(int(pid))
+    if expired or not alive:
+        lp.unlink(missing_ok=True)
+        return {
+            "cleared": True,
+            "reason": "expired" if expired else "dead_pid",
+            "pid": pid,
+        }
+    return {"cleared": False, "reason": "held", "pid": pid}
+
+
 def acquire_drive_lock(repo: Path, ttl_sec: int = 3600) -> bool:
     """Single headless driver at a time."""
+    clear_stale_drive_lock(repo)
     lp = drive_lock_path(repo)
     lp.parent.mkdir(parents=True, exist_ok=True)
     now = time.time()
@@ -92,14 +125,6 @@ def acquire_drive_lock(repo: Path, ttl_sec: int = 3600) -> bool:
     }
     lp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return True
-
-
-def _pid_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
 
 
 def release_drive_lock(repo: Path) -> None:
@@ -257,12 +282,14 @@ def main() -> None:
         print(json.dumps(r, indent=2))
         raise SystemExit(0 if r.get("ok") else 2)
     if args.cmd == "status":
+        stale = clear_stale_drive_lock(repo)
         print(
             json.dumps(
                 {
                     "loop_active": loop_active(repo),
                     "work_remains": work_remains(repo),
                     "lock": _json(drive_lock_path(repo)),
+                    "stale_clear": stale,
                     "last": _json(repo / ".halo" / "drive-last.json"),
                     "state_status": _json(repo / ".halo" / "state.json").get("status"),
                     "phase": _json(repo / ".halo" / "state.json").get("phase"),

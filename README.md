@@ -325,8 +325,8 @@ Expand every arrow. Missing a stage is a bug, not a shortcut.
 │  One story / milestone unit per cycle:                               │
 │    plan → RED tests → implement → GREEN → simplify → verify          │
 │    → deploy preview → LIVE PROBE → evidence → baton → re-prompt      │
-│  Stop hook re-injects a *freshly engineered* NEXT_PROMPT as the      │
-│  next user turn (same session). Headless /goal /loop as backups.     │
+│  Grok: headless spawn + optional /loop with engineered NEXT_PROMPT.  │
+│  Claude: Stop decision:block may re-inject. Never wait for human.    │
 │  Human does not approve each cycle. Human peeks demos when free.     │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 ▼
@@ -392,7 +392,13 @@ Phase transitions, readiness math, scaffold trees, probe, evidence validation li
 
 ### 8. The loop is mechanical, not motivational
 
-“Keep going” is not a vibe. The **Stop hook** arms when `.halo/loop.json` is active: on turn end it can block stop and re-inject the engineered prompt as the next user message (Ralph protocol). Fallbacks: headless `grok -p --prompt-file`, `/goal`, `/loop`. See [docs/TRUE-LOOP.md](docs/TRUE-LOOP.md).
+“Keep going” is not a vibe. On **Grok Build**, Stop hooks are **passive** (only PreToolUse blocks) — Ralph `decision:block` alone will **not** re-prompt you. Continuous drive uses:
+
+1. **Headless spawn** (default on `/go`): `grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve`  
+2. **Optional TUI:** `/loop 60s` with `.halo/scheduler-prompt.txt`  
+3. Claude hosts may still honor Ralph JSON on Stop  
+
+See [docs/TRUE-LOOP.md](docs/TRUE-LOOP.md).
 
 ### 9. Autonomy is not recklessness
 
@@ -487,7 +493,7 @@ Slash (after `grok plugin install ~/code/halo --trust`):
 | `/halo-loop` | Same arming script (older name) |
 | `/stop-loop` / `/halo-loop-cancel` | Disarm loop |
 
-CLI equivalent: `halo go . --max 50` then keep working; Stop hook re-injects until cancel.
+CLI: `halo go . --max 50` arms loop + headless drive. Check: `halo drive . status`. Cancel: `/stop-loop`.
 
 ---
 
