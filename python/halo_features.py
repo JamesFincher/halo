@@ -192,6 +192,99 @@ def append_features(repo: Path, features: list[dict[str, Any]]) -> dict[str, Any
     return data
 
 
+def _load_state(repo: Path) -> dict[str, Any]:
+    sp = repo / ".halo" / "state.json"
+    if not sp.exists():
+        return {}
+    try:
+        return json.loads(sp.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _utc_day(ts: str | None = None) -> str:
+    if ts:
+        return str(ts)[:10]
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _next_d_ids(features: list[dict[str, Any]], n: int = 3) -> list[str]:
+    """Allocate next free D### ids (max existing + 1)."""
+    max_n = 0
+    for f in features:
+        fid = str(f.get("id") or "")
+        m = re.match(r"^D(\d+)$", fid, re.I)
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    start = max_n + 1
+    return [f"D{start + i:03d}" for i in range(n)]
+
+
+def _default_compound_batch(ids: list[str]) -> list[dict[str, Any]]:
+    """Three small factory-upgrade units for the next compounding day."""
+    templates = [
+        (
+            "Cycle-smoke still green after latest factory commit",
+            ["bash scripts/halo-cycle-smoke.sh . exits 0", "evidence cert written"],
+        ),
+        (
+            "doctor --strict + py_compile remain clean",
+            ["halo doctor --strict exits 0", "python3 -m py_compile python/*.py"],
+        ),
+        (
+            "NEXT_PROMPT + baton name next pending feature id",
+            ["halo continue writes NEXT_PROMPT", "plan names next passes:false id"],
+        ),
+    ]
+    out: list[dict[str, Any]] = []
+    for i, fid in enumerate(ids):
+        desc, steps = templates[i % len(templates)]
+        out.append(
+            {
+                "id": fid,
+                "description": desc,
+                "category": "dogfood",
+                "passes": False,
+                "milestone": "M-compound",
+                "steps": steps,
+            }
+        )
+    return out
+
+
+def maybe_seed_compounding_batch(
+    repo: Path,
+    *,
+    force: bool = False,
+    count: int = 3,  # noqa: ARG001 — fixed batch of 3 for now
+) -> dict[str, Any]:
+    """Alias for maybe_compound_seed with stable keys for tests/CLI (D030).
+
+    Returns {seeded, added, reason, date?}.
+    """
+    r = maybe_compound_seed(repo, force=force)
+    if r.get("seeded"):
+        return {
+            "seeded": True,
+            "added": list(r.get("ids") or []),
+            "reason": "seeded",
+            "date": r.get("day"),
+            "batch": r.get("batch"),
+        }
+    reason_map = {
+        "not_dogfood": "not compounding",
+        "not_all_pass": "not all_pass",
+        "already_seeded_today": "already seeded today",
+        "empty_list": "not all_pass",
+    }
+    raw = str(r.get("reason") or "noop")
+    return {
+        "seeded": False,
+        "added": [],
+        "reason": reason_map.get(raw, raw),
+    }
+
+
 def set_pass(
     repo: Path,
     feature_id: str,
@@ -233,6 +326,12 @@ def set_pass(
         stories_sync(repo)
     except Exception:  # noqa: BLE001
         pass
+    # Dogfood compounding: never idle on all_pass — seed next batch once/day
+    if passes:
+        try:
+            maybe_compound_seed(repo)
+        except Exception:  # noqa: BLE001
+            pass
     return data
 
 
@@ -248,25 +347,26 @@ def _next_d_id(existing_ids: set[str]) -> str:
 
 def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
     """When dogfood compounding + all_pass, append 3 new D-features once per UTC day (D030)."""
-    repo = Path(repo)
-    state: dict[str, Any] = {}
-    sp = repo / ".halo" / "state.json"
-    if sp.exists():
-        try:
-            state = json.loads(sp.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            state = {}
-    if not (state.get("dogfood") or state.get("dogfood_mode") == "compounding"):
+    repo = Path(repo).resolve()
+    state = _load_state(repo)
+    data = load_list(repo)
+    dogfood = bool(
+        state.get("dogfood")
+        or state.get("dogfood_mode") == "compounding"
+        or data.get("dogfood")
+        or data.get("dogfood_mode") == "compounding"
+    )
+    if not dogfood:
         return {"seeded": False, "reason": "not_dogfood"}
 
-    data = load_list(repo)
-    feats = data.get("features") or []
+    feats = list(data.get("features") or [])
     if not feats:
         return {"seeded": False, "reason": "empty_list"}
-    if not all(f.get("passes") for f in feats) and not force:
+    # force only overrides once-per-day, never seeds over an open backlog
+    if not all(f.get("passes") for f in feats):
         return {"seeded": False, "reason": "not_all_pass"}
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = _utc_day()
     seed_p = repo / ".halo" / "compound-seed.json"
     seed_meta: dict[str, Any] = {}
     if seed_p.exists():
@@ -274,19 +374,23 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
             seed_meta = json.loads(seed_p.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             seed_meta = {}
-    if seed_meta.get("last_seed_day") == today and not force:
+    last_day = seed_meta.get("last_seed_day") or data.get("last_compound_seed_date")
+    if last_day and _utc_day(str(last_day)) == today and not force:
         return {"seeded": False, "reason": "already_seeded_today", "day": today}
 
     existing = {str(f.get("id")) for f in feats if f.get("id")}
     batch_n = int(seed_meta.get("batch") or 0) + 1
+    # Prefer curated templates; fall back to rotating defaults
     templates = [
         "Harden cycle-smoke: fail if denylist paths appear in git status porcelain",
         "NEXT_PROMPT includes budget check line + spend day_cycles",
         "halo status prints feature remaining + drive.lock summary",
         "Doctor error if autonomous without loop.json active",
         "progress.jsonl tailed in SessionStart stderr boot line",
+        "Cycle-smoke still green after latest factory commit",
+        "doctor --strict + py_compile remain clean",
+        "NEXT_PROMPT + baton name next pending feature id",
     ]
-    # rotate templates by batch
     picks = [templates[(batch_n + i) % len(templates)] for i in range(3)]
     new_feats: list[dict[str, Any]] = []
     for desc in picks:
@@ -299,10 +403,20 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
                 "category": "dogfood",
                 "passes": False,
                 "milestone": f"M-compound-{batch_n}",
-                "steps": [f"Implement: {desc}", "Run halo cycle-smoke .", "Evidence + features pass"],
+                "steps": [
+                    f"Implement: {desc}",
+                    "Run halo cycle-smoke .",
+                    "Evidence + features pass",
+                ],
             }
         )
     append_features(repo, new_feats)
+    data = load_list(repo)
+    data["last_compound_seed_date"] = today
+    data["dogfood"] = True
+    data["dogfood_mode"] = data.get("dogfood_mode") or "compounding"
+    save_list(repo, data)
+
     seed_meta = {
         "last_seed_day": today,
         "batch": batch_n,
@@ -311,10 +425,22 @@ def maybe_compound_seed(repo: Path, *, force: bool = False) -> dict[str, Any]:
     }
     seed_p.parent.mkdir(parents=True, exist_ok=True)
     seed_p.write_text(json.dumps(seed_meta, indent=2) + "\n", encoding="utf-8")
+
+    sp = repo / ".halo" / "state.json"
+    if sp.exists():
+        try:
+            st = json.loads(sp.read_text(encoding="utf-8"))
+            st["dogfood_last_seed_date"] = today
+            st["updated_at"] = utc_now()
+            sp.write_text(json.dumps(st, indent=2) + "\n", encoding="utf-8")
+        except (OSError, json.JSONDecodeError):
+            pass
+
     return {"seeded": True, "batch": batch_n, "ids": seed_meta["seeded_ids"], "day": today}
 
 
 def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
+    """Pass/fail counts. Optionally auto-seed compounding batch when all_pass (D030)."""
     if compound:
         try:
             maybe_compound_seed(repo)
@@ -388,6 +514,22 @@ def main() -> None:
         print(json.dumps(append_features(Path(args.repo), feats), indent=2))
 
     a.set_defaults(func=_append)
+
+    seed = sub.add_parser(
+        "seed",
+        help="dogfood compounding: if all_pass, append next D-batch (once/UTC day)",
+    )
+    seed.add_argument("--repo", default=".")
+    seed.add_argument("--force", action="store_true", help="allow same-day reseed")
+    seed.add_argument("--count", type=int, default=3)
+    seed.set_defaults(
+        func=lambda a: print(
+            json.dumps(
+                maybe_seed_compounding_batch(Path(a.repo), force=a.force, count=a.count),
+                indent=2,
+            )
+        )
+    )
 
     args = p.parse_args()
     args.func(args)
