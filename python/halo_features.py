@@ -759,6 +759,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "null when scores/trajectories dirs empty or missing",
         ],
     ),
+    # Batch 33+ — seed counts lock + compound-seed meta + escalate surface
+    (
+        "halo features seed JSON includes scores_count trajectories_count scores_trajectories_match",
+        [
+            "seed stdout JSON has scores_count and trajectories_count ints",
+            "scores_trajectories_match bool (true when equal including both zero)",
+        ],
+    ),
+    (
+        "compound-seed.json records latest_score_id and latest_trajectory_id on seed write",
+        [
+            "compound-seed.json has latest_score_id and latest_trajectory_id after successful seed",
+            "null when scores/trajectories dirs empty or missing at seed time",
+        ],
+    ),
+    (
+        "halo escalate JSON includes latest_score_id and latest_trajectory_id",
+        [
+            "escalate packet or stdout JSON has latest_score_id and latest_trajectory_id",
+            "null when scores/trajectories dirs empty or missing",
+        ],
+    ),
 ]
 
 
@@ -789,29 +811,35 @@ def maybe_seed_compounding_batch(
 ) -> dict[str, Any]:
     """Alias for maybe_compound_seed with stable keys for tests/CLI (D030).
 
-    Returns {seeded, added, reason, date?}.
+    Returns {seeded, added, reason, date?} plus D153 score surface
+    (latest_score_id / latest_trajectory_id + counts/match via pass_score_fields).
+    Seed never allocates score stubs — pure read of .halo/scores|trajectories.
     """
+    repo = Path(repo).resolve()
     r = maybe_compound_seed(repo, force=force)
     if r.get("seeded"):
-        return {
+        out: dict[str, Any] = {
             "seeded": True,
             "added": list(r.get("ids") or []),
             "reason": "seeded",
             "date": r.get("day"),
             "batch": r.get("batch"),
         }
-    reason_map = {
-        "not_dogfood": "not compounding",
-        "not_all_pass": "not all_pass",
-        "already_seeded_today": "already seeded today",
-        "empty_list": "not all_pass",
-    }
-    raw = str(r.get("reason") or "noop")
-    return {
-        "seeded": False,
-        "added": [],
-        "reason": reason_map.get(raw, raw),
-    }
+    else:
+        reason_map = {
+            "not_dogfood": "not compounding",
+            "not_all_pass": "not all_pass",
+            "already_seeded_today": "already seeded today",
+            "empty_list": "not all_pass",
+        }
+        raw = str(r.get("reason") or "noop")
+        out = {
+            "seeded": False,
+            "added": [],
+            "reason": reason_map.get(raw, raw),
+        }
+    # D153: merge latest ids (+ counts/match) into seed CLI/library JSON
+    return {**out, **pass_score_fields(repo)}
 
 
 def _factory_diff_paths(repo: Path) -> list[str]:
@@ -841,11 +869,11 @@ def _factory_diff_paths(repo: Path) -> list[str]:
 
 
 def pass_score_fields(repo: Path) -> dict[str, Any]:
-    """D147–D152: scores/trajectories surface on features pass/fail stdout JSON.
+    """D147–D153: scores/trajectories surface on features pass/fail/seed stdout JSON.
 
-    Counts + match: D147 (pass) / D152 (fail). Latest ids: D148 (pass) / D149 (fail).
-    Read after mark. Pass path may create on_feature_pass stubs first (counts rise);
-    fail path never does — pure pre-mark counts and null ids when dirs empty/missing.
+    Counts + match: D147 (pass) / D152 (fail). Latest ids: D148 (pass) / D149 (fail) / D153 (seed).
+    Pass path may create on_feature_pass stubs first (counts rise);
+    fail and seed never do — pure pre-op counts and null ids when dirs empty/missing.
     Not persisted into feature-list.json — stdout envelope only.
     """
     sc = _scores_count(repo)
