@@ -301,6 +301,32 @@ def maybe_seed_compounding_batch(
     }
 
 
+def _factory_diff_paths(repo: Path) -> list[str]:
+    """Changed factory paths (excludes .halo/ and archives)."""
+    import subprocess
+
+    names: set[str] = set()
+    for args in (
+        ["diff", "--name-only"],
+        ["diff", "--cached", "--name-only"],
+        ["ls-files", "--others", "--exclude-standard"],
+    ):
+        try:
+            out = subprocess.check_output(
+                ["git", *args], cwd=repo, text=True, stderr=subprocess.DEVNULL
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            continue
+        for line in out.splitlines():
+            line = line.strip()
+            if not line or line.startswith(".halo/") or line.startswith(".halo-archive/"):
+                continue
+            if line in ("init.sh", "halo-health.json"):
+                continue
+            names.add(line)
+    return sorted(names)
+
+
 def set_pass(
     repo: Path,
     feature_id: str,
@@ -310,7 +336,11 @@ def set_pass(
     evidence: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Mark feature pass/fail. Pass requires evidence unless --force (Anthropic premature-done gate)."""
+    """Mark feature pass/fail. Pass requires evidence unless --force.
+
+    requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
+    """
+    repo = Path(repo)
     data = load_list(repo)
     found = False
     for f in data.get("features") or []:
@@ -323,13 +353,27 @@ def set_pass(
                         f".halo/evidence/ (e.g. {feature_id}-green.json) or --evidence PATH. "
                         f"Use --force only for human override."
                     )
-                f["evidence"] = str(ev_path.relative_to(repo) if ev_path.is_relative_to(repo) else ev_path)
+                if f.get("requires_code") is True:
+                    diffs = _factory_diff_paths(repo)
+                    if not diffs:
+                        raise SystemExit(
+                            f"refuse pass for {feature_id}: requires_code but no factory "
+                            f"FILE_DIFF. Implement code first, or --force."
+                        )
+                    f["factory_diff"] = diffs[:40]
+                try:
+                    f["evidence"] = str(
+                        ev_path.relative_to(repo) if ev_path.is_relative_to(repo) else ev_path
+                    )
+                except (ValueError, TypeError):
+                    f["evidence"] = str(ev_path)
             f["passes"] = passes
             f["verified_at"] = utc_now() if passes else None
             if note:
                 f["note"] = note
             if not passes:
                 f.pop("evidence", None)
+                f.pop("factory_diff", None)
             found = True
             break
     if not found:
