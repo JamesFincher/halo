@@ -110,7 +110,34 @@ def cmd_set(args: argparse.Namespace) -> None:
     if args.readiness_verdict:
         data["readiness_verdict"] = args.readiness_verdict
     save(repo, data)
-    print(json.dumps({"ok": True, "phase": data.get("phase"), "spec_status": data.get("spec_status")}, indent=2))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "phase": data.get("phase"),
+                "spec_status": data.get("spec_status"),
+                "readiness_verdict": data.get("readiness_verdict"),
+            },
+            indent=2,
+        )
+    )
+
+
+def cmd_lock_specs(args: argparse.Namespace) -> None:
+    """Mark specs locked and move to readiness phase."""
+    repo = Path(args.repo).resolve()
+    data = load(repo)
+    data["spec_status"] = "locked"
+    data["phase"] = "readiness"
+    data["status"] = "ACTIVE"
+    save(repo, data)
+    baton = repo / ".halo" / "baton.md"
+    baton.write_text(
+        "# Baton\n- Phase: readiness\n- Next: run halo-readiness (python/halo_readiness.py --write)\n"
+        "- Specs: locked\n",
+        encoding="utf-8",
+    )
+    print(json.dumps({"ok": True, "phase": "readiness", "spec_status": "locked"}, indent=2))
 
 
 def cmd_set_intake(args: argparse.Namespace) -> None:
@@ -119,9 +146,12 @@ def cmd_set_intake(args: argparse.Namespace) -> None:
     intake = data.setdefault("intake", {})
     value = json.loads(args.json)
     intake[args.key] = value
-    if args.key == "product_name" or (isinstance(value, dict) and "product_name" in value):
-        pass
-    if args.key == "core_purpose" and isinstance(value, dict) and value.get("product_name"):
+    if args.key == "product_name" and isinstance(value, str):
+        data["product_name"] = value
+        intake["product_name"] = value
+    if isinstance(value, dict) and value.get("product_name"):
+        data["product_name"] = value["product_name"]
+    if args.key in ("core_purpose", "purpose") and isinstance(value, dict) and value.get("product_name"):
         data["product_name"] = value["product_name"]
     save(repo, data)
     print(json.dumps({"ok": True, "key": args.key}, indent=2))
@@ -156,6 +186,10 @@ def main() -> None:
     si.add_argument("--key", required=True)
     si.add_argument("--json", required=True)
     si.set_defaults(func=cmd_set_intake)
+
+    lk = sub.add_parser("lock-specs", help="spec_status=locked, phase=readiness")
+    lk.add_argument("--repo", default=".")
+    lk.set_defaults(func=cmd_lock_specs)
 
     args = p.parse_args()
     args.func(args)

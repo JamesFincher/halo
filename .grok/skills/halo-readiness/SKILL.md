@@ -1,55 +1,88 @@
 ---
 name: halo-readiness
-description: Lifecycle foresight gate — verify accounts, API keys, CLIs, deploy tools exist before scaffold. Collect secrets inventory without committing secrets. STUB until slice 1 complete.
+description: Lifecycle foresight gate — merge intake integrations with baseline (hosting, auth, DB, Sentry, …), probe CLIs/env names, write readiness.json. GO/NO_GO/DEGRADED before scaffold. Never logs secret values.
 ---
 
-# Halo Readiness (stub)
+# Halo Readiness
 
-**Status**: Spec exists; full automation in slice 1.
+**When**: Specs locked (`spec_status: locked`) or human says “check readiness” / after lock.  
+**Tool**: `python/halo_readiness.py` (stdlib).  
+**Law**: Foresight now — Sentry/Clerk/Vercel/DB asked before first scaffold, not mid-flight.
 
-## Intent
+## Agent procedure
 
-Before any scaffold or build:
+### 1. Preconditions
 
-1. Read `.halo/spec/INTEGRATIONS.md` + `READINESS.md` + intake.integrations
-2. Expand to **whole v1 lifecycle** (hosting, auth, DB, monitoring, email, payments, AI, analytics)
-3. For each item, check:
-   - Account signup needed?
-   - Env var names
-   - CLI install + auth (`vercel login`, `gh auth`, etc.)
-4. Probe what can be probed without secrets (CLI present on PATH)
-5. Write `.halo/readiness.json`:
-
-```json
-{
-  "verdict": "GO|NO_GO|DEGRADED",
-  "checked_at": "ISO8601",
-  "items": [
-    {
-      "id": "vercel",
-      "ok": false,
-      "blocking": true,
-      "human_action": "Install Vercel CLI and run vercel login; set project link",
-      "env": ["VERCEL_TOKEN"]
-    }
-  ]
-}
+```bash
+test -f .halo/state.json
+# prefer locked specs; if drafting, still can inventory but do not GO to scaffold
 ```
 
-6. Human fills `.env` locally (gitignored). Never commit secrets.
-7. On GO → `phase: scaffold`
+If no state → run `halo-bootstrap` first.
 
-## Live probe rule (forward reference)
+### 2. Ensure intake.integrations populated
 
-Deploy share requires `python/halo_probe.py` success. Implemented early so scaffold Demo 0 obeys same law.
+If empty but `.halo/spec/INTEGRATIONS.md` exists, parse known providers into state (or re-run intake integrations phase). Prefer structured `intake.integrations` in state.
 
-## Current agent behavior (stub)
+### 3. Run checker (write artifacts)
 
-If invoked now:
+From **Halo system** install path (or copy `python/` into path):
 
-1. Generate/update `.halo/spec/READINESS.md` from integrations
-2. Create `.env.example` with all keys empty
-3. Check PATH for common CLIs (`node`, `npm`, `git`, `gh`, `vercel`, `python3`)
-4. Set `phase: readiness`, `readiness_verdict` in state
-5. List blocking human actions clearly
-6. Do **not** pretend GO if keys missing for required integrations
+```bash
+HALO_SYS="${HALO_SYSTEM:-/Users/james/code/halo}"
+python3 "$HALO_SYS/python/halo_readiness.py" --repo . --write
+```
+
+Explicit degraded accept (human said ship without optional blockers still blocking? use only when human accepts missing **blocking** items temporarily):
+
+```bash
+python3 "$HALO_SYS/python/halo_readiness.py" --repo . --write --allow-degraded
+```
+
+### 4. Interpret verdict
+
+| Verdict | Meaning | Next |
+|---------|---------|------|
+| `GO` | No blocking failures | `phase: scaffold` — run **halo-scaffold** |
+| `DEGRADED` | Human allowed missing blockers | Scaffold allowed; log risk in baton |
+| `NO_GO` | Blocking gaps | Stay `readiness` / `BLOCKED`; list human_action only |
+
+**Never invent GO.** Re-run after human fills `.env`.
+
+### 5. Human message format
+
+```
+READINESS: NO_GO
+Blocking:
+- vercel: Install CLI; vercel login; set VERCEL_TOKEN
+- database: set DATABASE_URL
+Fill .env from .env.example (values never committed).
+Re-run: python3 …/halo_readiness.py --repo . --write
+```
+
+Do **not** paste secret values. Do **not** ask human to paste secrets into chat if avoidable — point to local `.env`.
+
+### 6. Artifacts written
+
+| Path | Content |
+|------|---------|
+| `.halo/readiness.json` | Machine report |
+| `.halo/spec/READINESS.md` | Human checklist table |
+| `.env.example` | Key names only |
+| `.halo/state.json` | `readiness_verdict`, phase |
+| `.halo/baton.md` | Next step |
+
+### 7. Live probe reminder
+
+Deploy URLs later: only share after `halo_probe.py --url …` exit 0.
+
+## Forbidden
+
+- Committing `.env`
+- Logging API keys
+- Scaffold on NO_GO without `--allow-degraded` + human accept
+- Deferring “we'll add Sentry later” when intake listed monitoring
+
+## Catalog
+
+Baseline integrations live in `python/halo_catalog.py` — git, gh, node/python (stack-aware), vercel, database, auth/clerk, sentry, email, stripe, openai, analytics. Intake merges and can force blocking.

@@ -29,15 +29,15 @@ You are an AI coding agent. Halo is a **self-instantiating development system**.
 |-------|-------|-------|--------|
 | **0 Bootstrap** | `halo-bootstrap` | low | `.halo/`, project AGENTS.md, state |
 | **1 Intake** | `halo-intake` | **high** | locked decisions (interview) |
-| **2 Spec pack** | `halo-spec-pack` | review | full docs under `.halo/spec/` |
+| **2 Spec pack** | `halo-spec-pack` / `halo_spec_write.py` | review | full docs under `.halo/spec/` |
 | 2b Spec iterate | chat + rewrite | until happy | revised pack |
-| 3 Readiness | `halo-readiness` | secrets once | `.halo/readiness.json` GO/NO-GO |
+| **3 Readiness** | `halo-readiness` / `halo_readiness.py` | secrets once | `.halo/readiness.json` GO/NO_GO/DEGRADED |
 | 4 Scaffold | `halo-scaffold` | none | app skeleton + Demo 0 |
 | 5 Milestones | derived from specs | none | `.halo/milestones/` + stories |
 | 6 Build loop | `halo-build` | async demos | code + **live** preview URLs |
 | 7 Complete | — | promote prod | all stories deployed |
 
-**Current implementable skills**: 0–2. Later phases: stubs + ARCHITECTURE only.
+**Implementable now**: 0–3 fully; 4 contract; 5–6 planned.
 
 ---
 

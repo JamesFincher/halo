@@ -1,6 +1,6 @@
 {
   "name": "halo",
   "description": "Autonomous product development system — idea to live demos.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "keywords": ["halo", "autonomous", "prd", "intake", "build"]
 }

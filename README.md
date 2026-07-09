@@ -45,11 +45,19 @@ grok plugin install /Users/james/code/halo --trust
 | `halo-bootstrap` | First touch — instantiate Halo into target project |
 | `halo-intake` | Grill: idea → locked product decisions |
 | `halo-spec-pack` | Write full doc suite under `.halo/spec/` |
-| `halo-readiness` | Lifecycle foresight + credential/tool gate |
-| `halo-scaffold` | *(slice 2)* Create app skeleton + design system hooks |
-| `halo-build` | *(slice 2)* Autonomous TDD → verify → deploy loop |
+| `halo-readiness` | Lifecycle foresight + CLI/env gate → GO/NO_GO/DEGRADED |
+| `halo-scaffold` | Skeleton + milestones + Demo 0 (probe before share) |
+| `halo-build` | *(next)* Autonomous TDD → verify → deploy loop |
 
-Python tooling (stdlib-first) lives in `python/`.
+### Python CLI
+
+```bash
+python3 python/halo_state.py init --repo /path/to/product
+python3 python/halo_spec_write.py --repo /path/to/product
+python3 python/halo_state.py lock-specs --repo /path/to/product
+python3 python/halo_readiness.py --repo /path/to/product --write
+python3 python/halo_probe.py --url https://your-preview.example
+```
 
 ---
 
@@ -66,13 +74,14 @@ Do not invent a half-PRD and start coding. Spec pack locks first.
 
 ---
 
-## Status (v0)
+## Status (v0.2)
 
 | Slice | Status |
 |-------|--------|
-| Bootstrap + Intake + Spec pack | **in progress** |
-| Readiness foresight gate | stubs |
-| Scaffold + build loop + live deploy probe | planned (from grok-halo v2) |
+| Bootstrap + Intake + Spec pack | **done** |
+| Readiness foresight gate | **done** |
+| Scaffold contract + probe | skill contract; profiles next |
+| Build loop (grok-halo port) | planned |
 
 Architecture: `docs/ARCHITECTURE.md` · Lifecycle: `docs/LIFECYCLE.md`
 

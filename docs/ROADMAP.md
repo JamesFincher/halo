@@ -1,27 +1,28 @@
 # Halo Roadmap
 
-## Slice 0 — Bootstrap + Intake + Spec pack ✅ (this commit family)
+## Slice 0 — Bootstrap + Intake + Spec pack ✅
 
 - [x] Repo skeleton, AGENTS, ARCHITECTURE, LIFECYCLE
 - [x] `halo-bootstrap` skill
 - [x] `halo-intake` + steps
 - [x] `halo-spec-pack` skill
-- [x] `halo_state.py`, `halo_probe.py`
+- [x] `halo_state.py`, `halo_probe.py`, `halo_spec_write.py`
 - [x] Templates for product AGENTS/HALO
-- [x] Readiness skill stub
 
-## Slice 1 — Readiness automation
+## Slice 1 — Readiness automation ✅
 
-- [ ] Full readiness checks + CLI probes
-- [ ] Secret inventory UX (write-only `.env`, never log values)
-- [ ] GO / NO_GO / DEGRADED machine verdict
-- [ ] Block scaffold until GO or explicit DEGRADED accept
+- [x] `halo_catalog.py` lifecycle baseline + intake merge
+- [x] `halo_readiness.py` CLI/env checks (never log secrets)
+- [x] GO / NO_GO / DEGRADED + `--allow-degraded`
+- [x] Writes readiness.json, READINESS.md, .env.example, baton
+- [x] `lock-specs` state command
 
 ## Slice 2 — Scaffold + Demo 0
 
-- [ ] Stack-specific scaffolders (start: Next.js SaaS + FastAPI profiles)
-- [ ] Port design-system patterns from bm-skills (optional profile)
-- [ ] Demo 0 deploy + **live probe** gate
+- [x] `halo-scaffold` skill contract (probe-before-share)
+- [ ] Stack-specific scaffolders (Next.js SaaS + FastAPI)
+- [ ] Port design-system patterns from bm-skills (optional)
+- [ ] Demo 0 deploy + live probe gate automated
 - [ ] Milestone prompt generation from MILESTONES.md + STORIES.md
 
 ## Slice 3 — Build loop
