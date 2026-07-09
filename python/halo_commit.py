@@ -5,6 +5,9 @@
 - Blocks denylist paths
 - Stages only explicit paths or current non-ignored changes
 - One conventional message: `Sxxx: summary`
+
+D165: stdout JSON includes latest_score_id and latest_trajectory_id
+(null when scores/trajectories dirs empty or missing).
 """
 
 from __future__ import annotations
@@ -17,6 +20,26 @@ from pathlib import Path
 from typing import Any
 
 from halo_denylist import is_denylist_path as _is_denylist_path
+
+
+def commit_score_fields(repo: Path) -> dict[str, Any]:
+    """Score culture fields for commit-unit stdout JSON.
+
+    D165: latest_score_id / latest_trajectory_id (null when empty/missing).
+    """
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(repo, compound=False)
+        return {
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
+        }
 
 # Build artifacts (not secret, but never auto-commit bulk)
 _BUILD_DENY = re.compile(
@@ -105,8 +128,9 @@ def commit_unit(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     repo = repo.resolve()
+    score_fields = commit_score_fields(repo)
     if not (repo / ".git").exists():
-        return {"ok": False, "error": "not a git repo"}
+        return {"ok": False, "error": "not a git repo", **score_fields}
 
     candidates = paths if paths else list_changed(repo)
     safe, rejected = filter_safe(repo, candidates)
@@ -116,6 +140,7 @@ def commit_unit(
             "error": "nothing safe to commit",
             "rejected": rejected,
             "candidates": candidates,
+            **score_fields,
         }
 
     msg = message or f"{feature_id}: unit complete"
@@ -123,13 +148,25 @@ def commit_unit(
         msg = f"{feature_id}: {msg}"
 
     if dry_run:
-        return {"ok": True, "dry_run": True, "paths": safe, "rejected": rejected, "message": msg}
+        return {
+            "ok": True,
+            "dry_run": True,
+            "paths": safe,
+            "rejected": rejected,
+            "message": msg,
+            **score_fields,
+        }
 
     _run(repo, "add", "--", *safe)
     # avoid empty commit
     staged = _run(repo, "diff", "--cached", "--name-only", check=False)
     if not staged.strip():
-        return {"ok": False, "error": "nothing staged after filter", "rejected": rejected}
+        return {
+            "ok": False,
+            "error": "nothing staged after filter",
+            "rejected": rejected,
+            **score_fields,
+        }
 
     _run(repo, "commit", "-m", msg)
     head = _run(repo, "rev-parse", "--short", "HEAD", check=False)
@@ -139,6 +176,7 @@ def commit_unit(
         "paths": safe,
         "rejected": rejected,
         "message": msg,
+        **score_fields,
     }
 
 
