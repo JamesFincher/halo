@@ -41,10 +41,7 @@ fi
 echo "[cycle-smoke] 5/5 features summary"
 python3 "$HALO_SYS/python/halo_features.py" summary --repo "$ROOT" >/dev/null
 
-EV="$ROOT/.halo/evidence"
-mkdir -p "$EV"
-cat > "$EV/D-cycle-smoke-latest.json" <<JSON
-{"cert":"GREEN_TEST","feature":"cycle-smoke","exit_code":0,"ok":true,"at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","steps":["py_compile","doctor","denylist","unittest","features"]}
-JSON
-echo "[cycle-smoke] PASS (evidence $EV/D-cycle-smoke-latest.json)"
+# D138: evidence includes scores_count / trajectories_count / scores_trajectories_match
+EV_PATH="$(python3 "$HALO_SYS/python/halo_cycle_smoke.py" write-evidence --repo "$ROOT")"
+echo "[cycle-smoke] PASS (evidence $EV_PATH)"
 exit 0
