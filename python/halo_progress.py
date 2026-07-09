@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,68 @@ def trajectories_count(repo: Path) -> int:
         return 0
 
 
+def latest_score_id(repo: Path) -> str | None:
+    """Max numeric S### id under .halo/scores/ (D134); null when empty/missing."""
+    scores = repo / ".halo" / "scores"
+    if not scores.is_dir():
+        return None
+    best_n = -1
+    best_id: str | None = None
+    try:
+        for p in scores.iterdir():
+            if not p.is_file() or p.suffix != ".json":
+                continue
+            m = re.match(r"^S(\d+)$", p.stem, re.I)
+            if not m:
+                continue
+            n = int(m.group(1))
+            if n > best_n:
+                best_n = n
+                try:
+                    payload = json.loads(p.read_text(encoding="utf-8"))
+                    pid = payload.get("id") if isinstance(payload, dict) else None
+                    if isinstance(pid, str) and re.match(r"^S\d+$", pid, re.I):
+                        best_id = pid
+                    else:
+                        best_id = p.stem
+                except (OSError, json.JSONDecodeError):
+                    best_id = p.stem
+    except OSError:
+        return None
+    return best_id
+
+
+def latest_trajectory_id(repo: Path) -> str | None:
+    """Max numeric GT-### id under .halo/trajectories/ (D134); null when empty/missing."""
+    traj = repo / ".halo" / "trajectories"
+    if not traj.is_dir():
+        return None
+    best_n = -1
+    best_id: str | None = None
+    try:
+        for p in traj.iterdir():
+            if not p.is_file() or p.suffix != ".json":
+                continue
+            m = re.match(r"^GT-(\d+)$", p.stem, re.I)
+            if not m:
+                continue
+            n = int(m.group(1))
+            if n > best_n:
+                best_n = n
+                try:
+                    payload = json.loads(p.read_text(encoding="utf-8"))
+                    pid = payload.get("id") if isinstance(payload, dict) else None
+                    if isinstance(pid, str) and re.match(r"^GT-\d+$", pid, re.I):
+                        best_id = pid
+                    else:
+                        best_id = p.stem
+                except (OSError, json.JSONDecodeError):
+                    best_id = p.stem
+    except OSError:
+        return None
+    return best_id
+
+
 _UNIT_EVENTS = frozenset({"unit", "unit_done", "feature_pass", "cycle"})
 
 
@@ -76,6 +139,7 @@ def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path
     # D091: unit events auto-record factory dirty count
     # D128: unit events auto-record scores_count and trajectories_count
     # D131: unit events auto-record scores_trajectories_match from final counts
+    # D134: unit events auto-record latest_score_id and latest_trajectory_id
     if str(event).lower() in _UNIT_EVENTS:
         if "dirty_count" not in detail:
             detail["dirty_count"] = factory_dirty_count(repo)
@@ -87,6 +151,10 @@ def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path
             detail["scores_trajectories_match"] = (
                 int(detail["scores_count"]) == int(detail["trajectories_count"])
             )
+        if "latest_score_id" not in detail:
+            detail["latest_score_id"] = latest_score_id(repo)
+        if "latest_trajectory_id" not in detail:
+            detail["latest_trajectory_id"] = latest_trajectory_id(repo)
     row = {"at": utc_now(), "event": event, **detail}
     with jsonl.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
