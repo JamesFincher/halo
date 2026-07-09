@@ -796,6 +796,21 @@ def _factory_diff_paths(repo: Path) -> list[str]:
     return sorted(names)
 
 
+def pass_score_fields(repo: Path) -> dict[str, Any]:
+    """D147: scores/trajectories counts + match on features pass/fail stdout JSON.
+
+    Counts are read after mark (post on_feature_pass stubs when passes=true).
+    Not persisted into feature-list.json — stdout envelope only.
+    """
+    sc = _scores_count(repo)
+    tc = _trajectories_count(repo)
+    return {
+        "scores_count": sc,
+        "trajectories_count": tc,
+        "scores_trajectories_match": sc == tc,
+    }
+
+
 def set_pass(
     repo: Path,
     feature_id: str,
@@ -808,6 +823,8 @@ def set_pass(
     """Mark feature pass/fail. Pass requires evidence unless --force.
 
     requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
+    D147: return value includes scores_count / trajectories_count /
+    scores_trajectories_match (post-mark) for operators + inject.
     """
     repo = Path(repo)
     data = load_list(repo)
@@ -869,7 +886,8 @@ def set_pass(
             maybe_compound_seed(repo)
         except Exception:  # noqa: BLE001
             pass
-    return data
+    # D147: merge post-mark score surface into CLI JSON (do not persist into list)
+    return {**data, **pass_score_fields(repo)}
 
 
 def _next_d_id(existing_ids: set[str]) -> str:
