@@ -1,5 +1,7 @@
 # Halo Architecture
 
+> **Deep dive (normative intent):** [ARCHITECTURE-DEEP.md](./ARCHITECTURE-DEEP.md) — AI-centric design, two worlds, self-modify levels, completeness, failure taxonomy.
+
 ## What Halo is
 
 Halo is a **skill-packaged, self-instantiating product development system** for agentic AI (Grok Build first).

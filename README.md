@@ -93,7 +93,7 @@ Do not invent a half-PRD and start coding. Spec pack locks first.
 | Build cycle skill | **contract** (agent-run) |
 | Multi-cycle walk-away runner | planned |
 
-Architecture: `docs/ARCHITECTURE.md` · Lifecycle: `docs/LIFECYCLE.md`
+Architecture: `docs/ARCHITECTURE.md` · **Deep:** `docs/ARCHITECTURE-DEEP.md` · Lifecycle: `docs/LIFECYCLE.md` · Workflows: `docs/WORKFLOWS.md`
 
 ---
 
