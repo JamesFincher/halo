@@ -26,15 +26,21 @@ description: One autonomous build cycle — pick story/milestone unit, TDD, veri
 
 - **Never delete, skip, or gut tests** to make the suite green.
 - If a test is wrong, fix the test to match locked AC — do not remove coverage.
-- Mark feature `passes: true` only after GREEN suite + AC map:
-  `python3 $HALO_SYS/python/halo_features.py pass --repo . --id Sxxx`
+- Run `halo ratchet` (or `python3 $HALO_SYS/python/halo_ratchet.py`) if suspect.
+- Mark feature `passes: true` only after GREEN suite + evidence file:
+  ```bash
+  # write .halo/evidence/Sxxx-green.json with exit_code:0 first
+  python3 $HALO_SYS/python/halo_features.py pass --repo . --id Sxxx \
+    --evidence .halo/evidence/Sxxx-green.json --note "…"
+  ```
+  Hand-editing `passes: true` without `verified_at`/`evidence` is rejected by Stop completion.
 
 ## After each unit
 
 ```bash
 python3 $HALO_SYS/python/halo_progress.py add --repo . --event story_done --note "Sxxx …"
 python3 $HALO_SYS/python/halo_next_prompt.py --repo . --write
-# prefer: git commit -m "Sxxx: …"
+# prefer: git commit -m "Sxxx: …"  (factory code only — never force-add gitignored .halo/ dogfood)
 ```
 
 ## Hard stops

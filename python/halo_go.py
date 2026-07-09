@@ -36,6 +36,44 @@ def log_line(repo: Path, msg: str) -> None:
         f.write(f"- [{utc_now()}] {msg}\n")
 
 
+def arm_loop(repo: Path, max_cycles: int) -> None:
+    """Write .halo/loop.json so Stop-hook true loop is armed (not only state.autonomous)."""
+    loop_p = repo / ".halo" / "loop.json"
+    existing: dict[str, Any] = {}
+    if loop_p.exists():
+        try:
+            existing = json.loads(loop_p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+    loop = {
+        "active": True,
+        "iteration": int(existing.get("iteration") or 0),
+        "max_iterations": max_cycles,
+        "started_at": existing.get("started_at")
+        or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "session_id": existing.get("session_id") or "",
+        "completion_promise": existing.get("completion_promise") or "HALO_COMPLETE",
+        "protocol": "stop-hook-block-reason",
+        "stagnant_iters": int(existing.get("stagnant_iters") or 0),
+        "last_head": existing.get("last_head"),
+    }
+    loop_p.parent.mkdir(parents=True, exist_ok=True)
+    loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+
+
+def disarm_loop(repo: Path, reason: str = "go_disabled") -> None:
+    loop_p = repo / ".halo" / "loop.json"
+    if not loop_p.exists():
+        return
+    try:
+        loop = json.loads(loop_p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        loop = {}
+    loop["active"] = False
+    loop["stopped_reason"] = reason
+    loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+
+
 def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = False) -> dict[str, Any]:
     data = load(repo)
     data["autonomous"] = True
@@ -50,19 +88,37 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
     if data.get("status") == "PAUSED":
         data["status"] = "ACTIVE"
     save(repo, data)
+    arm_loop(repo, max_cycles)
+    # seed budget file if missing (hard caps via env / budget.json)
+    budget_p = repo / ".halo" / "budget.json"
+    if not budget_p.exists():
+        budget_p.write_text(
+            json.dumps(
+                {
+                    "max_iterations": max_cycles,
+                    "max_daily_cycles": int(__import__("os").environ.get("HALO_MAX_DAILY_CYCLES") or 0),
+                    "max_wall_minutes": int(__import__("os").environ.get("HALO_MAX_WALL_MINUTES") or 0),
+                    "halted": False,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     baton = repo / ".halo" / "baton.md"
     baton.write_text(
         "# Baton\n"
-        "- Mode: AUTONOMOUS (halo-go) + SELF-PROMPT\n"
+        "- Mode: AUTONOMOUS (halo-go) + SELF-PROMPT + true Stop loop\n"
         f"- Phase: {data.get('phase')}\n"
         "- Rule: never ask; defaults; drive phase machine; end every unit by refreshing NEXT_PROMPT.md\n"
-        "- Hard stops only: kill switch, denylist, 3 fails, true BLOCKED secrets, explicit stop\n"
+        "- Hard stops only: kill switch, denylist, 3 fails, true BLOCKED secrets, budget, explicit stop\n"
         f"- Max cycles this run: {max_cycles}\n"
+        "- Loop: .halo/loop.json active=true (Stop re-injects NEXT_PROMPT)\n"
         "- Self-prompt: inline continue, then headless `halo continue --spawn` if needed\n"
         "- Next: load skill halo-go; execute plan; write NEXT_PROMPT\n",
         encoding="utf-8",
     )
-    log_line(repo, f"autonomous ENABLED max_cycles={max_cycles} self_prompt={self_prompt} spawn={spawn}")
+    log_line(repo, f"autonomous ENABLED max_cycles={max_cycles} self_prompt={self_prompt} spawn={spawn} loop=armed")
     # always seed NEXT_PROMPT for cold re-entry
     try:
         from halo_next_prompt import write_prompt
@@ -79,6 +135,7 @@ def disable(repo: Path) -> dict[str, Any]:
     data["autonomous"] = False
     data["require_human_gate"] = True
     save(repo, data)
+    disarm_loop(repo, "go_disabled")
     log_line(repo, "autonomous DISABLED")
     baton = repo / ".halo" / "baton.md"
     prev = data.get("phase") or "unknown"

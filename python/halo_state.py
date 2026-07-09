@@ -63,19 +63,48 @@ def cmd_init(args: argparse.Namespace) -> None:
             "# Progress\n\nAppend-only log for cold sessions. Prefer `halo_progress.py add`.\n\n",
             encoding="utf-8",
         )
+    prog_jl = halo / "progress.jsonl"
+    if not prog_jl.exists():
+        prog_jl.write_text("", encoding="utf-8")
     fl = halo / "feature-list.json"
     if not fl.exists():
         fl.write_text(
             json.dumps({"version": 1, "features": [], "updated_at": None}, indent=2) + "\n",
             encoding="utf-8",
         )
+    # product boot script (Anthropic init.sh) — agent fills after scaffold
+    init_sh = repo / "init.sh"
+    if not init_sh.exists():
+        init_sh.write_text(
+            "#!/usr/bin/env bash\n"
+            "# Halo product boot — run before each coding session (Anthropic init.sh pattern).\n"
+            "# Scaffold / agent should replace stubs with real install + dev-server commands.\n"
+            "set -euo pipefail\n"
+            "cd \"$(dirname \"$0\")\"\n"
+            "echo \"[init.sh] cwd=$(pwd)\"\n"
+            "if [[ -f package.json ]]; then\n"
+            "  if [[ ! -d node_modules ]]; then npm install; fi\n"
+            "  echo \"[init.sh] npm install ok (or already present)\"\n"
+            "fi\n"
+            "if [[ -f requirements.txt && -d .venv ]]; then\n"
+            "  # shellcheck disable=SC1091\n"
+            "  source .venv/bin/activate || true\n"
+            "fi\n"
+            "echo \"[init.sh] TODO after scaffold: start dev server + baseline smoke\"\n"
+            "echo \"[init.sh] done — agent should verify core path before new features\"\n",
+            encoding="utf-8",
+        )
+        try:
+            init_sh.chmod(0o755)
+        except OSError:
+            pass
 
     if state_path(repo).exists() and not args.force:
         raise SystemExit("state exists; use --force to overwrite")
 
     data = {
         "version": 1,
-        "halo_system_version": "0.4.0",
+        "halo_system_version": "0.6.0",
         "status": "ACTIVE",
         "phase": args.phase,
         "spec_status": "none",

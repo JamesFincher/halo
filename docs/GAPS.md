@@ -4,6 +4,8 @@
 **Method:** Compare Halo to Anthropic long-running harness, Ralph / open-ralph, continuous-claude / BM PRD+milestones, Codex long-horizon, OpenHands patterns, grok-halo evidence culture.  
 **Rule:** Code wins on mechanism; this file tracks **intent debt**.
 
+**Dogfood:** Halo may run as its own TARGET (`.halo/` local only). Factory `.gitignore` excludes `.halo/` so clones never see self-instance state.
+
 ---
 
 ## Peer systems — what they get right
@@ -112,3 +114,19 @@ From peer postmortems + Anthropic:
 ---
 
 **When you close a gap:** update this table + ROADMAP. A gap closed only in prose is still open.
+
+
+### Closed in 0.6.0 (dogfood M1 harness gates)
+
+| ID | Gap | Status |
+|----|-----|--------|
+| G23 | Feature pass without evidence | **Fixed:** `halo_features.pass` requires GREEN evidence |
+| G08 | Hard budget | **Fixed:** `halo_budget.py` + Stop HALT |
+| G04b | Test ratchet mechanical | **Fixed:** `halo_ratchet.py` + Stop inject |
+| G27 | go without loop.json | **Fixed:** `halo_go.enable` arms loop |
+| G05b | link-skills destroys factory on dogfood | **Fixed:** dogfood-skip when A=B |
+| G35 | CLAUDE.md dual pointer | **Fixed:** template + init copy |
+| — | Push pollution from self-instance | **Fixed:** ignore entire `.halo/`, `/init.sh`, `/halo-health.json`, `/HALO.md` |
+
+Still open: G06 Arena, G11 auto-commit, G13 CI (dogfood S006–S008).
+

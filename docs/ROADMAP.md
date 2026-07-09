@@ -47,14 +47,19 @@
 
 - [x] `halo-build` / `halo-verify` / `halo-deploy` skill contracts
 - [x] Self-authored NEXT_PROMPT from live state (engineered)
-- [ ] Port grok-halo v2 runner automation (budget, Arena, scores)
-- [ ] Auto-commit per story unit
+- [x] Evidence-gated feature pass + honest completion promise
+- [x] Hard budget (iter/daily/wall) + test ratchet mechanical
+- [x] `halo go` arms true Stop loop (`loop.json`)
+- [x] Dogfood-safe: factory never publishes `.halo/` self-instance state
+- [ ] Port Arena independent verify runner (dogfood S006)
+- [ ] Auto-commit per story unit (S007)
 
 ## Slice 4 — Walk-away runner
 
 - [x] `scripts/halo` surface (status/stop/resume/…)
 - [x] Runner lock helper (`.halo/runner.lock`)
-- [ ] Daily token/cycle budget hard stop
+- [x] Daily/iter/wall budget hard stop (`halo_budget.py`)
+- [ ] CI smoke workflow (S008)
 - [ ] Human dashboard notes / voice optional
 
 ## Non-goals near-term

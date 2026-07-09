@@ -1,7 +1,7 @@
 {
   "name": "halo",
   "description": "Autonomous product factory with true Stop-hook loop (re-inject NEXT_PROMPT).",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "keywords": [
     "halo",
     "autonomous",

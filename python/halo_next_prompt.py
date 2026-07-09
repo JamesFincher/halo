@@ -276,24 +276,27 @@ PHASE_PLAYBOOK: dict[str, dict[str, Any]] = {
         "artifacts": ["app skeleton", ".halo/milestones/", ".halo/evidence/demo0-probe.json"],
     },
     "build": {
-        "mission": "Ship exactly ONE pending story/milestone unit with TDD + evidence.",
+        "mission": "Ship exactly ONE pending feature-list item with TDD + evidence.",
         "do": [
-            "Pick highest-priority pending story from STORIES.md or first pending milestone prompt.",
+            "Boot: read feature-list next failing item; run ./init.sh if present; check git log -5.",
+            "Pick ONE feature with passes:false (machine truth). Prefer .halo/feature-list.json over markdown alone.",
             "Write .halo/plans/Sxxx-plan.md with AC and files.",
-            "RED test → implement min code → GREEN full suite.",
-            "Simplify pass; map AC→tests (SPEC_OK).",
-            "Deploy preview only if configured; halo probe before any URL share.",
-            "Write evidence certs; update story status; baton; autonomous-log.",
+            "RED test → implement min code → GREEN full suite. Never delete tests (ratchet).",
+            "Write GREEN evidence: .halo/evidence/Sxxx-green.json (exit_code:0).",
+            "Mark pass only via: halo features pass --id Sxxx --evidence .halo/evidence/Sxxx-green.json",
+            "Append progress; baton; autonomous-log; git commit this unit when safe.",
             "ONE unit only this turn (unless tiny residual fix).",
         ],
         "dont": [
             "Do not start 3 stories in one turn.",
             "Do not skip RED when adding behavior.",
+            "Do not mark passes:true by hand-editing JSON without evidence.",
             "Do not share unprobed URLs.",
             "Do not touch denylist paths.",
+            "Do not commit dogfood-only noise if factory gitignore forbids .halo/ (factory dogfood is local).",
         ],
-        "done_when": "One story advanced (tests green + evidence) OR hard-stop documented.",
-        "artifacts": ["code+tests", ".halo/evidence/*", "milestone-log if milestone done"],
+        "done_when": "One feature-list item advanced (GREEN evidence + pass tool) OR hard-stop documented.",
+        "artifacts": ["code+tests", ".halo/evidence/Sxxx-green.json", "progress.jsonl"],
     },
     "complete": {
         "mission": "Confirm complete; do not re-open work.",
@@ -540,23 +543,25 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 ## Session boot (every cold inject — do first)
 
 1. `export HALO_SYSTEM={halo_sys}`
-2. Read: state.json, baton.md, feature-list.json summary, progress.md tail, git log -5
-3. If feature-list empty but STORIES exist: `python3 {halo_sys}/python/halo_features.py sync --repo {repo}`
-4. Pick **one** feature with `passes: false` (or phase work if not in build yet)
+2. Read: `.halo/state.json`, baton.md, feature-list summary, progress tail, `git log -5`
+3. If `./init.sh` exists: run it (install + baseline). Fix breakages before new features.
+4. If feature-list empty but STORIES exist: `python3 {halo_sys}/python/halo_features.py sync --repo {repo}`
+5. Budget: `python3 {halo_sys}/python/halo_budget.py check --repo {repo}` — stop if HALT
+6. Pick **one** feature with `passes: false` (or phase work if not in build yet)
 
 ## Output contract (end of turn)
 
 1. Perform the work (tools/CLI). Prefer `$HALO_SYSTEM/scripts/halo` and `$HALO_SYSTEM/python/`.
-2. **Test ratchet:** never delete or weaken tests to go green. Fix code or mark feature still failing.
-3. If a feature is truly done (tests green + AC met):  
-   `python3 {halo_sys}/python/halo_features.py pass --repo {repo} --id Sxxx --note "…"`
+2. **Test ratchet:** never delete or weaken tests to go green.
+3. If a feature is truly done (GREEN suite + AC): write evidence then:  
+   `python3 {halo_sys}/python/halo_features.py pass --repo {repo} --id Sxxx --evidence .halo/evidence/Sxxx-green.json --note "…"`
 4. Append progress:  
    `python3 {halo_sys}/python/halo_progress.py add --repo {repo} --event unit --note "…"`
 5. Append 1–5 lines to `.halo/autonomous-log.md` (decisions, not questions).
 6. Update `.halo/baton.md`.
 7. Refresh inject: `python3 {halo_sys}/python/halo_next_prompt.py --repo {repo} --write`
-8. Emit `<promise>HALO_COMPLETE</promise>` **only if** every feature-list item has `passes: true` (or phase=complete with empty list). Lying ends the loop incorrectly — the Stop hook will reject false promises.
-9. Prefer a git commit per completed unit when safe.
+8. Emit `<promise>HALO_COMPLETE</promise>` **only if** every feature has `passes:true` + verified_at/evidence (or phase=complete). Stop hook rejects false promises.
+9. Prefer a git commit per completed **factory code** unit. Never force-add gitignored dogfood `.halo/` into the factory remote.
 
 ### Quality bar
 - One unit only. Observable outcome. No asking. No test deletion. No fake pass.

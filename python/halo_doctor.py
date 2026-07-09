@@ -51,6 +51,11 @@ REQUIRED_CLI = [
     "go",
     "continue",
     "link-skills",
+    "features",
+    "progress",
+    "budget",
+    "ratchet",
+    "loop",
 ]
 
 REQUIRED_PYTHON = [
@@ -70,6 +75,8 @@ REQUIRED_PYTHON = [
     "halo_features.py",
     "halo_progress.py",
     "halo_lock.py",
+    "halo_budget.py",
+    "halo_ratchet.py",
 ]
 
 
@@ -156,12 +163,63 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
             feats = json.loads(fl.read_text()).get("features") or []
             if state.get("phase") == "build" and not feats:
                 issues.append({"level": "warn", "code": "empty_feature_list", "item": "sync from STORIES.md"})
+            # passes:true without verified_at/evidence = dishonest done (gaming)
+            if state.get("phase") == "build":
+                for f in feats:
+                    if f.get("passes") and not (f.get("verified_at") or f.get("evidence")):
+                        issues.append(
+                            {
+                                "level": "warn",
+                                "code": "feature_pass_unverified",
+                                "item": f.get("id") or f.get("description"),
+                            }
+                        )
         except json.JSONDecodeError:
             issues.append({"level": "error", "code": "feature_list_corrupt", "item": "feature-list.json"})
+
+    if state.get("autonomous"):
+        loop_p = repo / ".halo" / "loop.json"
+        if loop_p.exists():
+            try:
+                loop = json.loads(loop_p.read_text(encoding="utf-8"))
+                if not loop.get("active"):
+                    issues.append(
+                        {
+                            "level": "warn",
+                            "code": "loop_inactive",
+                            "item": "autonomous but loop.json active=false — run halo go or halo loop",
+                        }
+                    )
+            except json.JSONDecodeError:
+                issues.append({"level": "warn", "code": "loop_corrupt", "item": "loop.json"})
+        else:
+            issues.append(
+                {
+                    "level": "warn",
+                    "code": "loop_not_armed",
+                    "item": "autonomous without loop.json — run halo go",
+                }
+            )
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
         issues.append({"level": "warn", "code": "skills_not_linked", "item": "run halo link-skills"})
+
+    # test ratchet (warn only — agent must fix)
+    try:
+        from halo_ratchet import check as ratchet_check
+
+        rrep = ratchet_check(repo)
+        if not rrep.get("ok"):
+            issues.append(
+                {
+                    "level": "warn",
+                    "code": "test_ratchet",
+                    "item": rrep.get("violations"),
+                }
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
     # evidence validate if any
     try:

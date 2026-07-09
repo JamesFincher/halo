@@ -80,11 +80,26 @@ if state_session and hook_session and state_session != hook_session:
 iteration = int(loop.get("iteration") or 0)
 max_iter = int(loop.get("max_iterations") or state.get("autonomous_max_cycles") or 50)
 next_iter = iteration + 1
-if max_iter > 0 and next_iter > max_iter:
-    loop["active"] = False
-    loop["stopped_reason"] = "max_iterations"
-    loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
-    raise SystemExit(0)
+
+# Budget hard stop (max iter / daily / wall / budget.json halt)
+sys.path.insert(0, str(halo_sys / "python"))
+try:
+    from halo_budget import check as budget_check, record_cycle  # type: ignore
+
+    bver = budget_check(cwd, next_iteration=next_iter)
+    if bver.get("verdict") == "HALT":
+        loop["active"] = False
+        loop["stopped_reason"] = f"budget:{bver.get('reason')}"
+        loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+        raise SystemExit(0)
+except SystemExit:
+    raise
+except Exception:
+    if max_iter > 0 and next_iter > max_iter:
+        loop["active"] = False
+        loop["stopped_reason"] = "max_iterations"
+        loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+        raise SystemExit(0)
 
 # transcript for last-assistant-aware prompt engineering
 transcript = ""
@@ -121,13 +136,36 @@ def last_assistant_text(path: str) -> str:
 
 
 last_text = last_assistant_text(transcript)
-
-# Completion promise (Ralph) — only honor if feature-list all pass OR phase complete
+# normalize promise detection (allow whitespace inside tags)
 promise = loop.get("completion_promise") or "HALO_COMPLETE"
-if last_text and f"<promise>{promise}</promise>" in last_text.replace(" ", ""):
-    # also accept spaced form
-    pass
-if last_text and f"<promise>{promise}</promise>" in last_text:
+import re as _re
+
+promise_hit = bool(
+    last_text
+    and (
+        f"<promise>{promise}</promise>" in last_text
+        or _re.search(
+            rf"<promise>\s*{_re.escape(promise)}\s*</promise>", last_text, _re.I
+        )
+    )
+)
+
+
+def features_honestly_done(feats: list) -> bool:
+    """All pass AND each has verified_at (blocks silent JSON edits without tool)."""
+    if not feats:
+        return False
+    for f in feats:
+        if not f.get("passes"):
+            return False
+        # allow force-pass without evidence only if verified_at set by tool
+        if not f.get("verified_at") and not f.get("evidence"):
+            return False
+    return True
+
+
+# Completion promise (Ralph) — only honor if feature-list honestly done OR phase complete
+if promise_hit:
     fl = {}
     fl_p = cwd / ".halo" / "feature-list.json"
     if fl_p.exists():
@@ -136,15 +174,13 @@ if last_text and f"<promise>{promise}</promise>" in last_text:
         except json.JSONDecodeError:
             fl = {}
     feats = fl.get("features") or []
-    all_pass = bool(feats) and all(f.get("passes") for f in feats)
-    if phase == "complete" or all_pass or not feats:
-        # allow stop only if features all pass, or no features yet but phase complete
-        if phase == "complete" or all_pass:
-            loop["active"] = False
-            loop["stopped_reason"] = "completion_promise"
-            loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
-            raise SystemExit(0)
-        # promise without evidence — continue with a scolding inject below via prompt
+    all_pass = features_honestly_done(feats)
+    if phase == "complete" or all_pass:
+        loop["active"] = False
+        loop["stopped_reason"] = "completion_promise"
+        loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+        raise SystemExit(0)
+    # promise without honest all_pass — scold below
 
 # Struggle detection: no git changes for N consecutive iterations
 try:
@@ -163,10 +199,20 @@ else:
 loop["last_head"] = head if head != "?" else loop.get("last_head")
 
 if int(loop.get("stagnant_iters") or 0) >= 3:
-    # force inject that demands progress or escalate — still block stop
     struggle = True
 else:
     struggle = False
+
+# Test ratchet — deleted tests → inject hard correction (still block stop)
+ratchet_violations = []
+try:
+    from halo_ratchet import check as ratchet_check  # type: ignore
+
+    rrep = ratchet_check(cwd)
+    if not rrep.get("ok"):
+        ratchet_violations = rrep.get("violations") or []
+except Exception:
+    ratchet_violations = []
 
 # update loop counter first so prompt can include iteration
 loop["active"] = True
@@ -177,6 +223,12 @@ if hook_session:
     loop["session_id"] = hook_session
 loop_p.parent.mkdir(parents=True, exist_ok=True)
 loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+
+# record budget spend
+try:
+    record_cycle(cwd)  # type: ignore[name-defined]
+except Exception:
+    pass
 
 # refresh NEXT_PROMPT — custom engineered for this iteration + last turn
 cmd = [
@@ -213,12 +265,20 @@ if struggle:
         "and stop looping. Do NOT claim completion. Do NOT delete tests.\n\n"
         "---\n\n" + prompt
     )
-if last_text and f"<promise>{promise}</promise>" in last_text:
-    # false promise without all_pass
+if ratchet_violations:
+    prompt = (
+        "## TEST RATCHET VIOLATION\n"
+        "Test files were deleted or gutted. Restore them and fix the code instead.\n"
+        + "\n".join(f"- {v}" for v in ratchet_violations[:12])
+        + "\n\nIt is **unacceptable** to remove tests to go green.\n\n---\n\n"
+        + prompt
+    )
+if promise_hit:
     prompt = (
         f"## INVALID COMPLETION PROMISE\n"
-        f"You emitted <promise>{promise}</promise> but feature-list is not all passes "
-        f"and phase is not complete. That is forbidden. Continue real work.\n\n---\n\n"
+        f"You emitted <promise>{promise}</promise> but feature-list is not honestly "
+        f"all passes (each needs passes:true + verified_at/evidence) and phase is not complete. "
+        f"Forbidden. Continue real work.\n\n---\n\n"
         + prompt
     )
 

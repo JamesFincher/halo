@@ -6,9 +6,27 @@ venv/
 .env
 .env.*
 !.env.example
-.halo/worktrees/
-.halo/logs/
-.halo/evidence/
+
+# ── Dogfood / product control plane ──────────────────────────────────
+# When Halo is instantiated on itself (World A = World B), `.halo/` is a
+# local run state only. Other users clone a clean factory — never ship
+# dogfood specs, evidence, loop counters, batons, or prompt history.
+.halo/
+
+# Generated product boot script at factory root during dogfood only.
+# Product TARGETS keep their own init.sh; factory protocol is in docs/skills.
+/init.sh
+
+# Dogfood scaffold leftovers at factory root (existing profile health marker)
+/halo-health.json
+
+# Product-only config dropped into factory when dogfooding (templates live under templates/project/)
+/HALO.md
+
+# Progress / next-prompt leftovers if ever written outside .halo/
+/progress.md
+/claude-progress.txt
+
 *.log
 .idea/
 .vscode/
@@ -16,3 +34,6 @@ node_modules/
 dist/
 build/
 .pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/

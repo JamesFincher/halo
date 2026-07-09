@@ -11,12 +11,25 @@ from pathlib import Path
 
 
 def link_skills(halo_sys: Path, target: Path, mode: str = "symlink") -> dict:
+    halo_sys = halo_sys.resolve()
+    target = target.resolve()
     src = halo_sys / ".grok" / "skills"
     dest_root = target / ".grok" / "skills"
-    dest_root.mkdir(parents=True, exist_ok=True)
-    linked = []
     if not src.is_dir():
         return {"ok": False, "error": f"no skills at {src}"}
+
+    # Dogfood: World A == World B — skills already live here. Never rmtree them.
+    if src.resolve() == dest_root.resolve() or halo_sys == target:
+        return {
+            "ok": True,
+            "mode": "dogfood-skip",
+            "linked": [],
+            "dest": str(dest_root),
+            "note": "TARGET is Halo system; skills already present — no link",
+        }
+
+    dest_root.mkdir(parents=True, exist_ok=True)
+    linked = []
 
     for skill_dir in sorted(src.iterdir()):
         if not skill_dir.is_dir():
@@ -24,12 +37,20 @@ def link_skills(halo_sys: Path, target: Path, mode: str = "symlink") -> dict:
         if not (skill_dir / "SKILL.md").exists() and not (skill_dir / "skill.md").exists():
             continue
         dest = dest_root / skill_dir.name
+        # Never delete a real skill directory that is the factory source
+        try:
+            if dest.resolve() == skill_dir.resolve() and not dest.is_symlink():
+                linked.append(skill_dir.name)
+                continue
+        except OSError:
+            pass
         if dest.exists() or dest.is_symlink():
-            if dest.is_symlink() or dest.is_dir():
-                if dest.is_symlink():
-                    dest.unlink()
-                else:
-                    shutil.rmtree(dest)
+            if dest.is_symlink():
+                dest.unlink()
+            elif dest.is_dir():
+                shutil.rmtree(dest)
+            else:
+                dest.unlink()
         if mode == "symlink":
             dest.symlink_to(skill_dir.resolve())
         else:

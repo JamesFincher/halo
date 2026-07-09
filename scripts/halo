@@ -47,8 +47,10 @@ halo — autonomous product development system
   link-skills [path]       Symlink Halo skills into product .grok/skills
   loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
   loop-cancel [path]       Disarm true loop
-  features [path] …        sync|summary|pass --id Sxxx (done tracking)
+  features [path] …        sync|summary|pass --id Sxxx [--evidence PATH|--force]
   progress [path] …        add|tail progress log
+  budget [path] …          check|show|record|halt (hard spend caps)
+  ratchet [path]           test-ratchet scan (deleted tests)
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
   workflows                Show workflow map path
@@ -61,13 +63,14 @@ EOF
     mkdir -p "$path"
     "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path" --force 2>/dev/null \
       || "$PY" "$HALO_SYSTEM/python/halo_state.py" init --repo "$path"
-    # copy product templates
-    for f in AGENTS.md HALO.md; do
+    # copy product templates (AGENTS + dual pointer CLAUDE.md)
+    for f in AGENTS.md HALO.md CLAUDE.md; do
       if [[ ! -f "$path/$f" && -f "$HALO_SYSTEM/templates/project/$f" ]]; then
         cp "$HALO_SYSTEM/templates/project/$f" "$path/$f"
       fi
     done
     echo "init ok → $path  next: intake (skill halo-intake) or dump idea to agent"
+    echo "boot: $path/init.sh (fill after scaffold) · done-track: .halo/feature-list.json"
     ;;
 
   status)
@@ -399,13 +402,16 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     if [[ ${#rest[@]} -eq 0 ]]; then rest=(summary); fi
     cmd="${rest[0]}"
-    unset 'rest[0]'
-    rest=("${rest[@]}")
+    # bash set -u: empty slice after shift must not expand unbound
+    fargs=()
+    if [[ ${#rest[@]} -gt 1 ]]; then
+      fargs=("${rest[@]:1}")
+    fi
     case "$cmd" in
       sync) "$PY" "$HALO_SYSTEM/python/halo_features.py" sync --repo "$path" ;;
       summary) "$PY" "$HALO_SYSTEM/python/halo_features.py" summary --repo "$path" ;;
-      pass) "$PY" "$HALO_SYSTEM/python/halo_features.py" pass --repo "$path" "${rest[@]}" ;;
-      fail) "$PY" "$HALO_SYSTEM/python/halo_features.py" fail --repo "$path" "${rest[@]}" ;;
+      pass) "$PY" "$HALO_SYSTEM/python/halo_features.py" pass --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
+      fail) "$PY" "$HALO_SYSTEM/python/halo_features.py" fail --repo "$path" ${fargs[@]+"${fargs[@]}"} ;;
       *) die "features: sync|summary|pass|fail" ;;
     esac
     ;;
@@ -442,6 +448,28 @@ print(ms[0]['prompt'] if ms else '(none pending)')"
     path="$(repo_arg "${1:-.}")"
     export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
     "$PY" "$HALO_SYSTEM/python/halo_lock.py" --repo "$path" --release --owner "halo-$$"
+    ;;
+
+  budget)
+    path="."
+    rest=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        check|show|record|halt) rest+=("$1"); shift ;;
+        --*) rest+=("$1"); shift ;;
+        *) path="$(repo_arg "$1")"; shift ;;
+      esac
+    done
+    path="$(repo_arg "$path")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ ${#rest[@]} -eq 0 ]]; then rest=(show); fi
+    "$PY" "$HALO_SYSTEM/python/halo_budget.py" --repo "$path" "${rest[@]}"
+    ;;
+
+  ratchet)
+    path="$(repo_arg "${1:-.}")"
+    export PYTHONPATH="${HALO_SYSTEM}/python${PYTHONPATH:+:$PYTHONPATH}"
+    "$PY" "$HALO_SYSTEM/python/halo_ratchet.py" --repo "$path" --json
     ;;
 
   workflows)

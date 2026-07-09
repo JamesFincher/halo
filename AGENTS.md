@@ -72,6 +72,9 @@ Hard stops still bind (denylist, probe, kill switch, 3 fails, prod). Autonomy �
 8. **Test ratchet** — never delete or weaken tests to go green. Fix code or fix the test to match locked AC.
 9. **Done tracking** — `.halo/feature-list.json` `passes: bool` is machine truth. Markdown STORIES alone is not enough. Sync with `halo_features.py sync`. Mark pass only after verified green.
 10. **Progress log** — append via `halo_progress.py` after each unit so cold sessions recover.
+11. **Evidence-gated pass** — `halo features pass` requires GREEN evidence (or human `--force`).
+12. **Budget** — `halo budget check`; Stop honors max_iterations / daily / wall / halt.
+13. **Dogfood** — Instantiating Halo on itself is allowed when explicit. **Never push** `.halo/` dogfood state: factory `.gitignore` excludes it. Ship only protocol code (skills, python, hooks, docs, templates).
 
 ---
 
