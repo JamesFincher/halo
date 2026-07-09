@@ -514,6 +514,8 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 - scores_count: {int(feats.get('scores_count') or 0)}
 - trajectories_count: {int(feats.get('trajectories_count') or 0)}
 - scores_trajectories_match: {'true' if bool(feats.get('scores_trajectories_match', int(feats.get('scores_count') or 0) == int(feats.get('trajectories_count') or 0))) else 'false'}
+- latest_score_id: {feats.get('latest_score_id') or '-'}
+- latest_trajectory_id: {feats.get('latest_trajectory_id') or '-'}
 
 ### Pending work (markdown view)
 {stories_list}

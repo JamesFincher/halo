@@ -583,6 +583,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "skip when match true or not dogfood",
         ],
     ),
+    # Batch 25+ — latest ids in prompt + match in progress + handoff health
+    (
+        "NEXT_PROMPT includes latest_score_id and latest_trajectory_id",
+        [
+            "feature list section lists latest_score_id and latest_trajectory_id",
+            "dash or null when missing/empty",
+        ],
+    ),
+    (
+        "progress unit event auto-records scores_trajectories_match",
+        [
+            "progress.jsonl unit events include scores_trajectories_match bool",
+            "true when counts equal including both zero",
+        ],
+    ),
+    (
+        "halo handoff writes scores_count trajectories_count scores_trajectories_match",
+        [
+            "handoff.md includes scores_count and trajectories_count",
+            "scores_trajectories_match true/false",
+        ],
+    ),
 ]
 
 
