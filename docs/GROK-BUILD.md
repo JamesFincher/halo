@@ -78,6 +78,13 @@ Default under `halo go`: **A then B**.
 
 ---
 
+## 2b. Engineered inject (not a static string)
+
+Each inject is rebuilt by `halo_next_prompt.py`: phase playbook, pending stories,
+baton/log tails, readiness gaps, git, last-assistant anti-patterns, **one primary action**.
+
+See TRUE-LOOP.md § Prompt engineering each inject.
+
 ## 3. NEXT_PROMPT contract
 
 File: `TARGET/.halo/NEXT_PROMPT.md`

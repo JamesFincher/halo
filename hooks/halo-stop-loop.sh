@@ -86,22 +86,41 @@ if max_iter > 0 and next_iter > max_iter:
     loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
     raise SystemExit(0)
 
-# refresh NEXT_PROMPT
+# transcript for last-assistant-aware prompt engineering
+transcript = ""
 try:
-    subprocess.run(
-        [
-            sys.executable,
-            str(halo_sys / "python" / "halo_next_prompt.py"),
-            "--repo",
-            str(cwd),
-            "--halo-system",
-            str(halo_sys),
-            "--write",
-        ],
-        check=False,
-        capture_output=True,
-        timeout=20,
-    )
+    transcript = str(hook.get("transcript_path") or hook.get("transcriptPath") or "")
+except Exception:
+    transcript = ""
+
+# update loop counter first so prompt can include iteration
+loop["active"] = True
+loop["iteration"] = next_iter
+loop["max_iterations"] = max_iter
+loop["last_fire_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+if hook_session:
+    loop["session_id"] = hook_session
+loop_p.parent.mkdir(parents=True, exist_ok=True)
+loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
+
+# refresh NEXT_PROMPT — custom engineered for this iteration + last turn
+cmd = [
+    sys.executable,
+    str(halo_sys / "python" / "halo_next_prompt.py"),
+    "--repo",
+    str(cwd),
+    "--halo-system",
+    str(halo_sys),
+    "--write",
+    "--iteration",
+    str(next_iter),
+    "--max-iterations",
+    str(max_iter),
+]
+if transcript:
+    cmd.extend(["--transcript", transcript])
+try:
+    subprocess.run(cmd, check=False, capture_output=True, timeout=30)
 except Exception:
     pass
 
@@ -111,16 +130,6 @@ if not next_p.exists():
 prompt = next_p.read_text(encoding="utf-8")
 if not prompt.strip():
     raise SystemExit(0)
-
-# update loop counter
-loop["active"] = True
-loop["iteration"] = next_iter
-loop["max_iterations"] = max_iter
-loop["last_fire_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-if hook_session:
-    loop["session_id"] = hook_session
-loop_p.parent.mkdir(parents=True, exist_ok=True)
-loop_p.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
 
 # optional headless spawn fallback
 if state.get("self_prompt_spawn") and os.environ.get("HALO_STOP_SPAWN") == "1":

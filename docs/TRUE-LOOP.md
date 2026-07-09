@@ -106,7 +106,52 @@ New process; that file **is** the user message. Reliable always.
 | `.halo/loop.json` | iteration, max, active, session_id |
 | `.halo/NEXT_PROMPT.md` | **The injected “user” text** |
 
-### Completion
+### Prompt engineering each inject
+
+Every Stop re-builds `.halo/NEXT_PROMPT.md` via `halo_next_prompt.py` — **not** a static string.
+
+### Inputs assembled
+
+| Source | Use |
+|--------|-----|
+| `state.json` | phase, status, readiness, story, demo URL, autonomous flags |
+| `intake` | purpose, features, stack |
+| `baton.md` tail | handoff landmines |
+| `autonomous-log.md` tail | prior decisions |
+| `readiness.json` | blocking gaps |
+| `STORIES.md` / milestones index | pending work list |
+| `evidence/` | recent cert filenames |
+| `git status/log` | dirty tree + recent commits |
+| Stop hook `transcript_path` | last assistant text (detect "should I?", errors) |
+| `loop.json` | iteration / max |
+
+### Structure of synthetic user message
+
+1. **Focus banner** — one primary action (`THIS TURN ONLY`)  
+2. **Role/authority** — halo-go, no questions, hard stops  
+3. **Live situation table** — product, phase, readiness, git  
+4. **Phase playbook** — mission / do / don't / done_when / artifacts (per phase)  
+5. **Machine plan** — from `halo go --plan`  
+6. **Issues from last turn** — anti-regression (asked human, 404, etc.)  
+7. **Output contract** — log, baton, refresh NEXT_PROMPT, optional promise  
+8. **Execute** — start with primary action  
+
+Phase playbooks live in `PHASE_PLAYBOOK` inside `python/halo_next_prompt.py` (intake / readiness / scaffold / build / complete).
+
+History: `.halo/prompt-history/NEXT_*.md` (last 20) for debug.
+
+### Goal of engineering
+
+| Bad inject | Good inject |
+|------------|-------------|
+| Generic "continue halo" | "THIS TURN ONLY: RED test for S003 login" |
+| Re-explain whole product | Cite pending story + baton landmine |
+| Ignore last failure | "Previous turn mentioned probe fail — fix first" |
+| Multi-story sprawl | One unit done_when |
+
+---
+
+## Completion
 
 Agent may only exit the loop when:
 
