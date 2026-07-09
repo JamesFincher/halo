@@ -297,6 +297,56 @@ def _stale_watchdog_issues(repo: Path, *, max_age: int = STALE_HEARTBEAT_SEC) ->
     return []
 
 
+def _compounding_score_culture_issues(repo: Path) -> list[dict[str, Any]]:
+    """Warn-only score/trajectory culture for compounding self-instance (D108/D114/D117/D160).
+
+    D160: scores_empty uses halo_scores.list_scores count (S*.json) so doctor and
+    scores CLI agree. trajectories via list_trajectories (GT-*.json). Never error.
+    """
+    issues: list[dict[str, Any]] = []
+    try:
+        from halo_scores import list_scores, list_trajectories
+
+        n = int(list_scores(repo).get("count") or 0)
+        tn = int(list_trajectories(repo).get("count") or 0)
+    except Exception:  # noqa: BLE001 — never block doctor on scores import
+        scores = repo / ".halo" / "scores"
+        n = len(list(scores.glob("S*.json"))) if scores.is_dir() else 0
+        traj = repo / ".halo" / "trajectories"
+        tn = len(list(traj.glob("GT-*.json"))) if traj.is_dir() else 0
+    # D160 / D108: empty scores
+    if n == 0:
+        issues.append(
+            {
+                "level": "warn",
+                "code": "scores_empty",
+                "item": "compounding self-instance with empty .halo/scores — land a pass to write S###",
+            }
+        )
+    # D114: empty trajectories
+    if tn == 0:
+        issues.append(
+            {
+                "level": "warn",
+                "code": "trajectories_empty",
+                "item": "compounding self-instance with empty .halo/trajectories — land a trajectory GT-###",
+            }
+        )
+    # D117: diverge (skip both-zero — empty warns already cover that)
+    if n != tn and not (n == 0 and tn == 0):
+        issues.append(
+            {
+                "level": "warn",
+                "code": "scores_trajectories_diverge",
+                "item": (
+                    f"compounding self-instance scores_count={n} "
+                    f"trajectories_count={tn} — keep in step"
+                ),
+            }
+        )
+    return issues
+
+
 def check_product(repo: Path) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     state_p = repo / ".halo" / "state.json"
@@ -375,44 +425,12 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
         # D078: stale watchdog heartbeat while autonomous+active loop
         if loop_active:
             issues.extend(_stale_watchdog_issues(repo))
-        # D108: compounding self-instance should accumulate cycle scores over time
+        # D108/D114/D117/D160: compounding self-instance score culture (warn only)
         compounding = bool(
             state.get("dogfood") or state.get("dogfood_mode") == "compounding"
         )
         if compounding and loop_active:
-            scores = repo / ".halo" / "scores"
-            n = len(list(scores.glob("S*.json"))) if scores.is_dir() else 0
-            if n == 0:
-                issues.append(
-                    {
-                        "level": "warn",
-                        "code": "scores_empty",
-                        "item": "compounding self-instance with empty .halo/scores — land a pass to write S###",
-                    }
-                )
-            # D114: compounding self-instance should accumulate golden trajectories
-            traj = repo / ".halo" / "trajectories"
-            tn = len(list(traj.glob("GT-*.json"))) if traj.is_dir() else 0
-            if tn == 0:
-                issues.append(
-                    {
-                        "level": "warn",
-                        "code": "trajectories_empty",
-                        "item": "compounding self-instance with empty .halo/trajectories — land a trajectory GT-###",
-                    }
-                )
-            # D117: scores and trajectories should stay in step (skip both-zero)
-            if n != tn and not (n == 0 and tn == 0):
-                issues.append(
-                    {
-                        "level": "warn",
-                        "code": "scores_trajectories_diverge",
-                        "item": (
-                            f"compounding self-instance scores_count={n} "
-                            f"trajectories_count={tn} — keep in step"
-                        ),
-                    }
-                )
+            issues.extend(_compounding_score_culture_issues(repo))
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
