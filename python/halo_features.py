@@ -844,6 +844,38 @@ def _trajectories_count(repo: Path) -> int:
         return 0
 
 
+def _latest_trajectory_id(repo: Path) -> str | None:
+    """Max numeric GT-### id under .halo/trajectories/ (D116); null when empty/missing."""
+    traj = repo / ".halo" / "trajectories"
+    if not traj.is_dir():
+        return None
+    best_n = -1
+    best_id: str | None = None
+    try:
+        for p in traj.iterdir():
+            if not p.is_file() or p.suffix != ".json":
+                continue
+            m = re.match(r"^GT-(\d+)$", p.stem, re.I)
+            if not m:
+                continue
+            n = int(m.group(1))
+            if n > best_n:
+                best_n = n
+                # Prefer payload id when present and well-formed
+                try:
+                    payload = json.loads(p.read_text(encoding="utf-8"))
+                    pid = payload.get("id") if isinstance(payload, dict) else None
+                    if isinstance(pid, str) and re.match(r"^GT-\d+$", pid, re.I):
+                        best_id = pid
+                    else:
+                        best_id = p.stem
+                except (OSError, json.JSONDecodeError):
+                    best_id = p.stem
+    except OSError:
+        return None
+    return best_id
+
+
 def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     """Pass/fail counts. Optionally auto-seed compounding batch when all_pass (D030)."""
     if compound:
@@ -866,6 +898,7 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
         "scores_count": _scores_count(repo),
         "trajectories_count": _trajectories_count(repo),
         "latest_score_id": _latest_score_id(repo),
+        "latest_trajectory_id": _latest_trajectory_id(repo),
         "features": feats,
     }
 
