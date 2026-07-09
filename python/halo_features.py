@@ -473,6 +473,28 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
             "not an error so strict still passes",
         ],
     ),
+    # Batch 20+ — latest id surfaces + count parity health
+    (
+        "features summary JSON includes top-level latest_score_id",
+        [
+            "summary has latest_score_id string or null",
+            "max S### id under .halo/scores/; null when empty/missing",
+        ],
+    ),
+    (
+        "features summary JSON includes top-level latest_trajectory_id",
+        [
+            "summary has latest_trajectory_id string or null",
+            "max GT-### id under .halo/trajectories/; null when empty/missing",
+        ],
+    ),
+    (
+        "doctor warns when dogfood autonomous and scores_count differs from trajectories_count",
+        [
+            "level warn code scores_trajectories_diverge when counts unequal",
+            "not an error so strict still passes; skip when both zero",
+        ],
+    ),
 ]
 
 
@@ -775,6 +797,38 @@ def _scores_count(repo: Path) -> int:
         return 0
 
 
+def _latest_score_id(repo: Path) -> str | None:
+    """Max numeric S### id under .halo/scores/ (D115); null when empty/missing."""
+    scores = repo / ".halo" / "scores"
+    if not scores.is_dir():
+        return None
+    best_n = -1
+    best_id: str | None = None
+    try:
+        for p in scores.iterdir():
+            if not p.is_file() or p.suffix != ".json":
+                continue
+            m = re.match(r"^S(\d+)$", p.stem, re.I)
+            if not m:
+                continue
+            n = int(m.group(1))
+            if n > best_n:
+                best_n = n
+                # Prefer payload id when present and well-formed
+                try:
+                    payload = json.loads(p.read_text(encoding="utf-8"))
+                    pid = payload.get("id") if isinstance(payload, dict) else None
+                    if isinstance(pid, str) and re.match(r"^S\d+$", pid, re.I):
+                        best_id = pid
+                    else:
+                        best_id = p.stem
+                except (OSError, json.JSONDecodeError):
+                    best_id = p.stem
+    except OSError:
+        return None
+    return best_id
+
+
 def _trajectories_count(repo: Path) -> int:
     """Count GT-*.json golden trajectories under .halo/trajectories/ (D112)."""
     traj = repo / ".halo" / "trajectories"
@@ -811,6 +865,7 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
         "next": nxt,
         "scores_count": _scores_count(repo),
         "trajectories_count": _trajectories_count(repo),
+        "latest_score_id": _latest_score_id(repo),
         "features": feats,
     }
 
