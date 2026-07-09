@@ -66,6 +66,9 @@ if state.get("HALO_KILL_SWITCH"):
 # OFF kill switch: cancel writes .halo/OFF; setup removes it on re-arm
 if (cwd / ".halo" / "OFF").exists():
     active = False
+# ACP supervisor is the single source of drive; do not spawn from Stop hook
+if loop.get("acp"):
+    raise SystemExit(0)
 if not active:
     raise SystemExit(0)
 
@@ -242,7 +245,7 @@ if want_spawn:
         from halo_drive import spawn_headless, clear_stale_drive_lock  # type: ignore
 
         clear_stale_drive_lock(cwd)
-        spawn_meta = spawn_headless(cwd, max_turns=80, halo_sys=halo_sys)
+        spawn_meta = spawn_headless(cwd, max_turns=1, halo_sys=halo_sys)
     except Exception as e:  # noqa: BLE001
         spawn_meta = {"ok": False, "error": str(e)}
 

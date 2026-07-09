@@ -5,7 +5,7 @@ Official Grok hooks docs: only PreToolUse is blocking; Stop is passive.
 Halo still emits Ralph-compatible JSON for Claude-compatible hosts, but on Grok
 the real continue path is headless re-entry:
 
-  grok -p "$(cat .halo/NEXT_PROMPT.md)" --output-format streaming-json
+  grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1
 
 This module implements that with a single-runner lock to avoid fork bombs.
 """
@@ -175,11 +175,11 @@ def ensure_next_prompt(repo: Path, halo_sys: Path | None = None) -> Path:
 def spawn_headless(
     repo: Path,
     *,
-    max_turns: int = 80,
+    max_turns: int = 1,
     force: bool = False,
     halo_sys: Path | None = None,
 ) -> dict[str, Any]:
-    """Spawn grok -p with NEXT_PROMPT. Fail closed if loop inactive or locked."""
+    """Spawn grok with NEXT_PROMPT from a file. Fail closed if loop inactive or locked."""
     repo = repo.resolve()
     if os.environ.get("HALO_NO_SPAWN") == "1" and not force:
         return {"ok": False, "error": "HALO_NO_SPAWN=1"}
@@ -222,20 +222,33 @@ def spawn_headless(
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"drive-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.log"
 
-    # Documented Grok headless (overview): grok -p "<prompt>".
-    # Optional: --output-format streaming-json for machine-readable logs.
+    # Documented Grok headless flags:
+    # --prompt-file reads the prompt from a file (avoids arg-length limits).
+    # --max-turns caps each grok process at one assistant turn (one Halo unit).
     # --always-approve is documented for unattended headless (skips permission prompts).
     # --no-auto-update is documented for scripts/CI to skip background update checks.
-    # Use bash + exec so the shell process is replaced by grok; proc.pid is the real grok PID.
-    grok_quoted = shlex.quote(str(grok))
-    prompt_quoted = shlex.quote(str(prompt))
-    repo_quoted = shlex.quote(str(repo))
+    # --output-format streaming-json is optional for machine-readable logs.
     cmd = [
-        "bash",
-        "-c",
-        f"exec {grok_quoted} -p \"$(cat {prompt_quoted})\" --cwd {repo_quoted} --always-approve --no-auto-update --output-format streaming-json",
+        str(grok),
+        "--no-auto-update",
+        "--prompt-file",
+        str(prompt),
+        "--cwd",
+        str(repo),
+        "--always-approve",
+        "--output-format",
+        "streaming-json",
+        "--max-turns",
+        str(max_turns),
     ]
     # Prefer plugin trust if available
+    spawn_env = {
+        **os.environ,
+        "HALO_SYSTEM": str(halo_sys or os.environ.get("HALO_SYSTEM") or ""),
+        "HALO_DRIVE": "1",
+    }
+    if not spawn_env.get("GROK_SANDBOX"):
+        spawn_env["GROK_SANDBOX"] = "workspace"
     try:
         with log_path.open("w", encoding="utf-8") as logf:
             logf.write(f"# halo_drive spawn {utc_now()}\n# cmd: {' '.join(cmd)}\n\n")
@@ -246,7 +259,7 @@ def spawn_headless(
                 stdout=logf,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
-                env={**os.environ, "HALO_SYSTEM": str(halo_sys or os.environ.get("HALO_SYSTEM") or ""), "HALO_DRIVE": "1"},
+                env=spawn_env,
             )
     except OSError as e:
         release_drive_lock(repo)
@@ -351,9 +364,9 @@ def main() -> None:
     p.add_argument("--halo-system", default=None)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("spawn", help="spawn headless grok -p with NEXT_PROMPT")
+    s = sub.add_parser("spawn", help="spawn headless grok with NEXT_PROMPT file")
     s.add_argument("--force", action="store_true")
-    s.add_argument("--max-turns", type=int, default=80)
+    s.add_argument("--max-turns", type=int, default=1)
 
     sub.add_parser("status", help="show drive/loop status")
     sub.add_parser("should-drive", help="exit 0 if drive should continue")

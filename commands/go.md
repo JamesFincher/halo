@@ -10,7 +10,7 @@ argument-hint: "[--max N] [--no-spawn]"
 
 Grok Build **Stop hooks are passive** (docs: only `PreToolUse` blocks).  
 Ralph `decision:block` + `reason` works on Claude Code; **Grok ignores the block**.  
-Halo now **headless-spawns** the next turn via `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json` so work continues without you typing.
+Halo can either **headless-spawn** each turn via `grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1` or run the **ACP supervisor** (`HALO_ACP=1`) for a single long-lived `grok agent stdio` session.
 
 ## 1. Arm drive (run now)
 

@@ -46,12 +46,13 @@ Arm with **`/go`** or `halo go . --max 50` → `.halo/loop.json` active + headle
 
 **Stop hooks are passive** (only `PreToolUse` can block). Ralph `decision:block` + `reason` is **ignored** for `Stop`.
 
-Real continue path:
+Real continue path (pick one, never combine):
 
-1. **Headless spawn** (default ON): Stop runs `halo_drive.spawn_headless` →  
-   `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json`
-2. **Single supervisor** (recommended): `halo watchdog . 15` runs planner and re-spawns under one pid. Avoid unbounded `Stop → spawn → Stop` trees.
-3. **Optional same-session TUI:** `/loop` with prompt from `.halo/NEXT_PROMPT.md` only if your plugin/TUI documents a stable inject command. Do not invent `scheduler_create`/`scheduler_list`/`scheduler_delete`.
+1. **ACP supervisor** (best for long runs): `HALO_ACP=1 halo watchdog . 15` runs `grok agent stdio` and sends `NEXT_PROMPT` as `session/prompt` each turn. Single process, no Stop-hook spawn.
+2. **Headless spawn** (default without `HALO_ACP`): Stop runs `halo_drive.spawn_headless` →  
+   `grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1`
+3. **Single supervisor** (legacy): `halo watchdog . 15` runs planner and re-spawns under one pid. Avoid unbounded `Stop → spawn → Stop` trees.
+4. **Optional same-session TUI:** `/loop` with prompt from `.halo/NEXT_PROMPT.md` only if your plugin/TUI documents a stable inject command. Do not invent `scheduler_create`/`scheduler_list`/`scheduler_delete`.
 
 Disable spawn only with `halo go --no-spawn` / `HALO_NO_SPAWN=1` (then you must message).
 
@@ -95,7 +96,7 @@ Then either:
 or (equivalent headless form):
 
 ```bash
-grok -p "$(cat "$TARGET/.halo/NEXT_PROMPT.md")" --always-approve --no-auto-update --output-format streaming-json
+grok --no-auto-update --prompt-file "$TARGET/.halo/NEXT_PROMPT.md" --cwd "$TARGET" --always-approve --output-format streaming-json --max-turns 1
 ```
 
 Only spawn if `self_prompt_spawn` true **or** human/CI invoked `continue --spawn`.  

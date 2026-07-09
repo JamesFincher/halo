@@ -72,7 +72,7 @@ halo budget [path] check|show|record|halt
 halo ratchet [path]                      test-ratchet scan
 halo arena [path] --id Sxxx [--spawn-check]
 halo commit-unit [path] --id Sxxx
-halo drive [path] spawn|status|scheduler-prompt
+halo drive [path] spawn|status|should-drive
 halo plan [path]                         refresh NEXT_PROMPT
 halo watchdog [path] [secs]              planner + spawn loop
 halo cycle-smoke [path]                  factory smoke test

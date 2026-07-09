@@ -671,8 +671,8 @@ def write_prompt(
     return path
 
 
-def spawn_headless(repo: Path, max_turns: int = 80) -> dict[str, Any]:
-    """Delegate to halo_drive (documented headless: grok -p $(cat NEXT_PROMPT))."""
+def spawn_headless(repo: Path, max_turns: int = 1) -> dict[str, Any]:
+    """Delegate to halo_drive (documented headless: grok --prompt-file NEXT_PROMPT)."""
     try:
         from halo_drive import spawn_headless as drive_spawn
 
@@ -688,7 +688,7 @@ def main() -> None:
     p.add_argument("--write", action="store_true", default=True)
     p.add_argument("--print", dest="do_print", action="store_true")
     p.add_argument("--spawn", action="store_true")
-    p.add_argument("--max-turns", type=int, default=80)
+    p.add_argument("--max-turns", type=int, default=1)
     p.add_argument("--transcript", default=None, help="JSONL transcript path from Stop hook")
     p.add_argument("--iteration", type=int, default=None)
     p.add_argument("--max-iterations", type=int, default=None)

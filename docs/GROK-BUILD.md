@@ -7,7 +7,7 @@
 | Project rules | `AGENTS.md` | `AGENTS.md` + product template |
 | Skills | `.grok/skills/<name>/SKILL.md` | `halo-*` skills |
 | Plugin | `.grok-plugin/`, `grok plugin install` | This repo as plugin |
-| Headless one-shot | `grok -p` | `halo continue` / self-prompt spawn |
+| Headless one-shot | `grok --prompt-file .halo/NEXT_PROMPT.md` | `halo continue` / self-prompt spawn |
 | Goal mode | `/goal` | `halo go` + standing objective |
 | Recurring prompt | `/loop` (if documented by your TUI) | `halo watchdog` (supervisor) |
 | Auto-approve | `/hooks-trust` or `--trust` | Required for project hooks to run |
@@ -29,7 +29,7 @@ On Grok Build, **only `PreToolUse` can block**. `Stop` is **passive**; `decision
 ```
 agent works → Stop event (passive) → hooks/halo-stop-loop.sh
   → if .halo/loop.json active and no .halo/OFF
-  → spawn headless: grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json
+  → spawn headless: grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1
   → next process loads skill halo-go and executes one unit
 ```
 
@@ -40,7 +40,7 @@ Slash: `/halo-loop` (arm) · CLI: `halo loop` · Cancel: `/halo-loop-cancel` (se
 ## Self-prompt modes
 
 - **A — Inline**: same session, continue phase driver, cap `autonomous_max_cycles`.
-- **B — Headless re-entry**: `halo continue --spawn` runs `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json`.
+- **B — Headless re-entry**: `halo continue --spawn` runs `grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1`.
 - **C — Goal / optional `/loop`**: `/goal <standing>` or a same-session inject command if your TUI documents one.
 
 Default under `halo go`: A then B.
@@ -75,6 +75,21 @@ export TARGET=/path/to/product
 ```bash
 halo watchdog . 15
 ```
+
+## ACP supervisor recipe (best continuous loop)
+
+Set `XAI_API_KEY` and run with `HALO_ACP=1`. This starts a single `grok agent stdio` process and sends `NEXT_PROMPT` as a `session/prompt` each turn.
+
+```bash
+export XAI_API_KEY="xai-..."
+HALO_ACP=1 halo go .
+# or
+HALO_ACP=1 halo watchdog .
+```
+
+- `Stop` hook is a no-op while `loop.json` has `acp: true`.
+- `halo loop-cancel` still writes `.halo/OFF` and terminates the supervisor.
+- Falls back to `grok --prompt-file .halo/NEXT_PROMPT.md --max-turns 1` headless spawn if `HALO_ACP` is not set.
 
 ## Optional same-session TUI inject
 

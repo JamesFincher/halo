@@ -56,7 +56,7 @@ def arm_loop(repo: Path, max_cycles: int) -> None:
         "session_id": existing.get("session_id") or "",
         "completion_promise": existing.get("completion_promise") or "HALO_COMPLETE",
         "protocol": "grok-headless+watchdog",
-        "protocol_note": "Grok Stop is passive; headless re-entry via grok -p $(cat NEXT_PROMPT) is the continue path",
+        "protocol_note": "Grok Stop is passive; headless re-entry via grok --prompt-file NEXT_PROMPT --max-turns 1 is the continue path",
         "stagnant_iters": int(existing.get("stagnant_iters") or 0),
         "last_head": existing.get("last_head"),
     }
@@ -86,7 +86,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 def ensure_watchdog(repo: Path, *, sleep_sec: int = 15) -> dict[str, Any]:
-    """Start scripts/halo-watchdog.sh if pidfile PID is not alive (D081).
+    """Start scripts/halo-watchdog.sh (or ACP supervisor if HALO_ACP) if pidfile PID is not alive (D081).
 
     Single-instance: existing live pidfile → no double-start.
     """
@@ -103,6 +103,25 @@ def ensure_watchdog(repo: Path, *, sleep_sec: int = 15) -> dict[str, Any]:
             return {"started": False, "reason": "already_running", "pid": old}
     # Locate factory scripts relative to this module or HALO_SYSTEM
     halo_sys = Path(os.environ.get("HALO_SYSTEM") or Path(__file__).resolve().parents[1])
+    if os.environ.get("HALO_ACP"):
+        script = halo_sys / "python" / "halo_acp_supervisor.py"
+        if not script.is_file():
+            return {"started": False, "reason": "acp_supervisor_missing", "path": str(script)}
+        logf = logs / "acp-supervisor.log"
+        try:
+            with logf.open("a", encoding="utf-8") as out:
+                proc = subprocess.Popen(
+                    [sys.executable, str(script), "--repo", str(repo), "--halo-system", str(halo_sys)],
+                    cwd=str(repo),
+                    stdout=out,
+                    stderr=out,
+                    start_new_session=True,
+                    env={**os.environ, "HALO_SYSTEM": str(halo_sys)},
+                )
+            pidfile.write_text(str(proc.pid), encoding="utf-8")
+            return {"started": True, "pid": proc.pid, "script": str(script)}
+        except OSError as e:
+            return {"started": False, "reason": str(e)}
     script = halo_sys / "scripts" / "halo-watchdog.sh"
     if not script.is_file():
         return {"started": False, "reason": "script_missing", "path": str(script)}
@@ -175,7 +194,7 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
         "- Hard stops only: kill switch, denylist, 3 fails, true BLOCKED secrets, budget, explicit stop\n"
         f"- Max cycles this run: {max_cycles}\n"
         "- Loop: .halo/loop.json active=true; Grok Stop is passive; headless/watchdog re-entry\n"
-        "- Self-prompt: headless `grok -p $(cat NEXT_PROMPT)` or `halo continue --spawn` if needed\n"
+        "- Self-prompt: headless `grok --prompt-file NEXT_PROMPT --max-turns 1` or `halo continue --spawn` if needed\n"
         "- Next: load skill halo-go; execute plan; write NEXT_PROMPT\n",
         encoding="utf-8",
     )
@@ -379,7 +398,7 @@ def main() -> None:
             try:
                 from halo_drive import spawn_headless
 
-                drive_result = spawn_headless(repo, max_turns=80)
+                drive_result = spawn_headless(repo, max_turns=1)
             except Exception as e:  # noqa: BLE001
                 drive_result = {"ok": False, "error": str(e)}
         print(

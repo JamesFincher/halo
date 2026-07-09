@@ -16,7 +16,7 @@ On Grok Build, **Stop is passive** (only `PreToolUse` can block). `decision:bloc
 ```
 agent works → Stop event (passive) → hooks/halo-stop-loop.sh
   → if loop.json active and no .halo/OFF → spawn headless or signal watchdog
-  → headless: grok -p "$(cat .halo/NEXT_PROMPT.md)"
+  → headless: grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1
   → next process loads skill halo-go and executes one unit
 ```
 
@@ -89,10 +89,10 @@ Do not enable autonomous on untrusted repos without folder trust.
 ## Fallbacks if Stop re-inject is ignored
 
 1. Always writes `NEXT_PROMPT.md` for cold re-entry.
-2. `self_prompt_spawn` + `HALO_STOP_SPAWN=1` → headless `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json`.
+2. `self_prompt_spawn` + `HALO_STOP_SPAWN=1` → headless `grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1`.
 3. Watchdog (`halo watchdog`) ensures re-spawn even if the Stop hook is missed.
 4. `/goal` with standing Halo objective.
 
-True loop = prefer watchdog supervisor; Stop hook is a fallback; never rely on blocking Stop.
+True loop = prefer **ACP supervisor** (`HALO_ACP=1 halo watchdog .`) or watchdog supervisor; Stop hook is a fallback; never rely on blocking Stop.
 
 <!-- plugin 0.8.2 continuous-drive surface: status budget+watchdog age, arena green gate, spawn --force -->

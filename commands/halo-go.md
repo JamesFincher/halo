@@ -22,10 +22,17 @@ Then immediately:
 - Rewrite self-contained `.halo/NEXT_PROMPT.md`
 - Do not wait for the human
 
-Prefer documented headless form for spawns:
+Prefer **ACP supervisor** for long runs:
 
 ```bash
-grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json
+export XAI_API_KEY="xai-..."
+HALO_ACP=1 halo watchdog .
+```
+
+Or, if `HALO_ACP` is not set, use the documented headless form:
+
+```bash
+grok --no-auto-update --prompt-file .halo/NEXT_PROMPT.md --cwd . --always-approve --output-format streaming-json --max-turns 1
 ```
 
 `--no-spawn`: arm state/files only; do not start watchdog/headless children.

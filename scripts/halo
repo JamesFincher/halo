@@ -42,8 +42,8 @@ halo — autonomous product development system
   doctor [path] [--strict] Validate system + product (strict=CI fail)
   evidence [path]          Validate evidence certs (not just files)
   go [path] [--off] [--max N] [--spawn]
-                           AUTONOMOUS mode — build without asking
-  continue [path] [--spawn] Write NEXT_PROMPT; optional grok -p re-entry
+                           AUTONOMOUS mode — build without asking (set HALO_ACP=1 for ACP)
+  continue [path] [--spawn] Write NEXT_PROMPT; optional grok --prompt-file re-entry
   link-skills [path]       Symlink Halo skills into product .grok/skills
   loop [path] [--max N]    Arm true Stop-hook loop (.halo/loop.json)
   loop-cancel [path]       Disarm true loop
@@ -58,7 +58,7 @@ halo — autonomous product development system
                            safe auto-commit (never force-adds .halo/)
   drive [path] …           spawn|status|should-drive (Grok continuous drive)
   plan [path]              Continuous drive: refresh NEXT_PROMPT via planner
-  watchdog [path] [secs]   Continuous drive: planner+spawn loop (default 15s)
+  watchdog [path] [secs]   Continuous drive: planner+spawn loop (default 15s; HALO_ACP=1 for ACP supervisor)
   cycle-smoke [path]       Continuous drive: factory smoke (compile+doctor+hygiene)
   reinstantiate [path]     Continuous drive: reset control plane + compounding backlog
   lock-runner [path]       acquire single-runner lock
@@ -518,7 +518,7 @@ PY
       "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --write
       echo "wrote $path/.halo/NEXT_PROMPT.md"
       echo "spawn: $0 continue $path --spawn"
-      echo "or: grok -p \"\$(cat $path/.halo/NEXT_PROMPT.md)\" --cwd $path --always-approve --no-auto-update --output-format streaming-json"
+      echo "or: grok --no-auto-update --prompt-file $path/.halo/NEXT_PROMPT.md --cwd $path --always-approve --output-format streaming-json --max-turns 1"
     fi
     ;;
 
@@ -718,7 +718,11 @@ PY
     path="$(repo_arg "${1:-.}")"
     secs="${2:-15}"
     export HALO_SYSTEM
-    exec bash "$HALO_SYSTEM/scripts/halo-watchdog.sh" "$path" "$secs"
+    if [[ -n "${HALO_ACP:-}" ]]; then
+      exec "$PY" "$HALO_SYSTEM/python/halo_acp_supervisor.py" --repo "$path" --halo-system "$HALO_SYSTEM"
+    else
+      exec bash "$HALO_SYSTEM/scripts/halo-watchdog.sh" "$path" "$secs"
+    fi
     ;;
 
   reinstantiate|dogfood-reinstantiate)

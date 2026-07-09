@@ -89,8 +89,9 @@ d.update({
   "max_iterations": int("$MAX"),
   "started_at": d.get("started_at") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
   "completion_promise": "HALO_COMPLETE",
-  "protocol": "grok-headless+watchdog",
-  "protocol_note": "Grok Stop is passive; headless re-entry via grok -p $(cat NEXT_PROMPT) is the continue path",
+  "protocol": "grok-acp" if os.environ.get("HALO_ACP") else "grok-headless+watchdog",
+  "protocol_note": "ACP supervisor (grok agent stdio) drives the session" if os.environ.get("HALO_ACP") else "Grok Stop is passive; headless re-entry via grok --prompt-file NEXT_PROMPT --max-turns 1 is the continue path",
+  "acp": bool(os.environ.get("HALO_ACP")),
 })
 if "iteration" not in d:
     d["iteration"] = 0
@@ -103,7 +104,7 @@ if off_p.exists():
 
 print("Halo continuous drive ARMED")
 print(f"  loop.json active=true max=$MAX")
-print(f"  protocol: headless re-entry via grok -p $(cat NEXT_PROMPT) + watchdog supervisor")
+print(f"  protocol: headless re-entry via grok --prompt-file NEXT_PROMPT --max-turns 1 + watchdog supervisor")
 print(f"  user hook: ~/.grok/hooks/halo-true-loop.json")
 print(f"  NEXT_PROMPT: $ROOT/.halo/NEXT_PROMPT.md")
 print("")
