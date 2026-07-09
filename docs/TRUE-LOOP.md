@@ -276,4 +276,4 @@ Technically: intercept **stop**, not the previous user message; replace the *nex
 
 **Version:** 1.0
 
-<!-- plugin 0.8.1 continuous-drive surface: plan/watchdog/cycle-smoke -->
+<!-- plugin 0.8.2 continuous-drive surface: status budget+watchdog age, arena green gate, spawn --force -->

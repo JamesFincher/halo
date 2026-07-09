@@ -452,6 +452,16 @@ def build_prompt(
     # Focus banner: one sentence the model must not ignore
     focus = f"**THIS TURN ONLY:** {primary}"
 
+    # D094: surface exhausted compound templates so agents expand ROADMAP
+    seed_meta = _json(repo / ".halo" / "compound-seed.json")
+    roadmap_exhausted = seed_meta.get("last_reason") == "no_new_roadmap"
+    if roadmap_exhausted:
+        focus = (
+            f"{focus}\n\n"
+            "**ROADMAP EXHAUSTED:** expand `ROADMAP_TEMPLATES` in `python/halo_features.py`, "
+            "then `halo features seed --force` and implement the first requires_code unit."
+        )
+
     return f"""# Halo synthetic user turn · {utc_now()}
 # iteration {iter_n}/{max_n} · phase={phase} · status={status}
 
@@ -485,6 +495,7 @@ You are **not** chatting with a human. This message was **injected** by the Halo
 | Current story | {story} |
 | Last demo URL | {demo} |
 | Loop iteration | {iter_n} / {max_n} |
+| roadmap_exhausted | {roadmap_exhausted} |
 
 ### Purpose (from intake)
 {purpose or "(not set — define this turn if in intake)"}

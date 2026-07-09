@@ -180,4 +180,4 @@ When adding a phase or skill:
 
 **Version:** 1.0 · ties to Halo v0.4+
 
-<!-- plugin 0.8.1 continuous-drive surface: plan/watchdog/cycle-smoke -->
+<!-- plugin 0.8.2 continuous-drive surface: status budget+watchdog age, arena green gate, spawn --force -->

@@ -15,8 +15,11 @@ fi
 
 python3 - <<PY
 import json
+import os
+import signal
 from pathlib import Path
 root = Path("$ROOT")
+# D095: disarm loop + kill drive pid from lock if process still owned/alive
 for name in ("loop.json", "drive.lock"):
     p = root / ".halo" / name
     if name == "loop.json" and p.exists():
@@ -27,7 +30,20 @@ for name in ("loop.json", "drive.lock"):
         d["active"] = False
         d["stopped_reason"] = "cancel"
         p.write_text(json.dumps(d, indent=2) + "\n")
-    elif p.exists():
+    elif name == "drive.lock" and p.exists():
+        try:
+            d = json.loads(p.read_text())
+            pid = int(d.get("pid") or 0)
+            if pid:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    print(f"drive killed pid={pid}")
+                except ProcessLookupError:
+                    print(f"drive pid {pid} already dead")
+                except PermissionError as e:
+                    print(f"drive kill skipped: {e}")
+        except Exception as e:
+            print(f"drive lock parse: {e}")
         p.unlink(missing_ok=True)
 print("Halo drive disarmed (loop inactive, drive.lock cleared)")
 print("Also cancel TUI /loop jobs via scheduler_list + scheduler_delete if you created any")
@@ -35,7 +51,6 @@ print("Also cancel TUI /loop jobs via scheduler_list + scheduler_delete if you c
 wp = Path("$ROOT/.halo/logs/watchdog.pid")
 if wp.exists():
     try:
-        import os, signal
         pid = int(wp.read_text().strip())
         os.kill(pid, signal.SIGTERM)
         print(f"watchdog killed pid={pid}")
