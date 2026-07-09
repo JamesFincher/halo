@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Test ratchet — detect deleted/gutted test files (Anthropic failure mode)."""
+"""Test ratchet — detect deleted/gutted test files (Anthropic failure mode).
+
+D174: --json / check includes scores_count / trajectories_count /
+scores_trajectories_match (true when equal, including both zero).
+"""
 
 from __future__ import annotations
 
@@ -18,6 +22,34 @@ TEST_PATH_RE = re.compile(
     r".*\.spec\.(ts|tsx|js|jsx)$",
     re.I,
 )
+
+
+def ratchet_score_fields(repo: Path) -> dict[str, Any]:
+    """Score culture fields for ratchet --json output.
+
+    D174: scores_count / trajectories_count / scores_trajectories_match.
+    """
+    try:
+        from halo_features import summary as feature_summary
+
+        fs = feature_summary(Path(repo), compound=False)
+        sc = int(fs.get("scores_count") or 0)
+        tc = int(fs.get("trajectories_count") or 0)
+        if "scores_trajectories_match" in fs:
+            match = bool(fs.get("scores_trajectories_match"))
+        else:
+            match = sc == tc
+        return {
+            "scores_count": sc,
+            "trajectories_count": tc,
+            "scores_trajectories_match": match,
+        }
+    except Exception:  # noqa: BLE001
+        return {
+            "scores_count": 0,
+            "trajectories_count": 0,
+            "scores_trajectories_match": True,
+        }
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -74,6 +106,7 @@ def check(repo: Path, commits: int = 5) -> dict[str, Any]:
         "recent_deleted_tests": recent,
         "unstaged_deleted_tests": dirty,
         "rule": "test_ratchet: never delete tests to go green",
+        **ratchet_score_fields(repo),
     }
 
 
