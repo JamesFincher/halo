@@ -3,6 +3,8 @@
 
 D170: --check / check JSON includes scores_count / trajectories_count /
 scores_trajectories_match (true when equal, including both zero).
+D171: --check / check JSON includes latest_score_id and latest_trajectory_id
+(null when scores/trajectories dirs empty or missing).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ def check_score_fields(repo: Path) -> dict[str, Any]:
     """Score culture fields for evidence check JSON.
 
     D170: scores_count / trajectories_count / scores_trajectories_match.
+    D171: latest_score_id / latest_trajectory_id (null when empty/missing).
     """
     try:
         from halo_features import summary as feature_summary
@@ -34,12 +37,16 @@ def check_score_fields(repo: Path) -> dict[str, Any]:
             "scores_count": sc,
             "trajectories_count": tc,
             "scores_trajectories_match": match,
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
             "scores_count": 0,
             "trajectories_count": 0,
             "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
         }
 
 
@@ -240,6 +247,7 @@ def check_file(path: Path, repo: Path | None = None) -> dict[str, Any]:
 
     D170: merges scores_count / trajectories_count / scores_trajectories_match
     from repo score culture (repo arg, else inferred from path / cwd).
+    D171: also merges latest_score_id / latest_trajectory_id (null when empty).
     """
     path = Path(path)
     score_repo = Path(repo).resolve() if repo is not None else _infer_repo(path)
