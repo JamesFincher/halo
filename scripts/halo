@@ -111,6 +111,8 @@ if lp.exists():
         pass
 # features
 feat_line = "features: (none)"
+latest_score_line = None
+latest_traj_line = None
 try:
     from halo_features import summary as feature_summary
     fs = feature_summary(p, compound=False)
@@ -120,6 +122,13 @@ try:
         f"features: {fs.get('passed')}/{fs.get('total')} remaining={fs.get('remaining')} "
         f"all_pass={fs.get('all_pass')} next={nid or '-'}"
     )
+    # D122: surface latest score/trajectory ids from features summary when present
+    lsid = fs.get("latest_score_id")
+    ltid = fs.get("latest_trajectory_id")
+    if lsid:
+        latest_score_line = f"latest_score_id: {lsid}"
+    if ltid:
+        latest_traj_line = f"latest_trajectory_id: {ltid}"
 except Exception as e:
     feat_line = f"features: (error: {e})"
 # drive.lock
@@ -156,6 +165,10 @@ print(f"story:    {s.get('current_story')}")
 print(f"demo:     {s.get('last_demo_url')}")
 print(f"profile:  {s.get('scaffold_profile')}")
 print(feat_line)
+if latest_score_line:
+    print(latest_score_line)
+if latest_traj_line:
+    print(latest_traj_line)
 print(drive_line)
 # D085: budget verdict + watchdog heartbeat age
 budget_line = "budget:   (n/a)"
