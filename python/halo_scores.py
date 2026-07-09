@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104)."""
+"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110)."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,39 @@ def _next_num(dir_path: Path, prefix: str) -> int:
         if m:
             max_n = max(max_n, int(m.group(1)))
     return max_n + 1
+
+
+def _score_files(repo: Path) -> list[Path]:
+    """Return S*.json score paths sorted by numeric id."""
+    scores = repo / ".halo" / "scores"
+    if not scores.is_dir():
+        return []
+    found: list[tuple[int, Path]] = []
+    for p in scores.glob("S*.json"):
+        m = re.match(r"^S(\d+)\.json$", p.name, re.I)
+        if m:
+            found.append((int(m.group(1)), p))
+    found.sort(key=lambda t: t[0])
+    return [p for _, p in found]
+
+
+def list_scores(repo: Path) -> dict[str, Any]:
+    """List cycle scores: count + latest id (D110)."""
+    files = _score_files(repo)
+    count = len(files)
+    latest: str | None = None
+    if files:
+        last = files[-1]
+        try:
+            payload = json.loads(last.read_text(encoding="utf-8"))
+            latest = str(payload.get("id") or last.stem)
+        except (OSError, json.JSONDecodeError):
+            latest = last.stem
+    return {
+        "count": count,
+        "latest": latest,
+        "ids": [p.stem for p in files],
+    }
 
 
 def write_cycle_score(
@@ -136,3 +171,24 @@ def on_feature_pass(repo: Path, feature_id: str, note: str = "") -> dict[str, An
     except Exception as e:  # noqa: BLE001
         out["loop_error"] = str(e)
     return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(prog="halo_scores")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    lst = sub.add_parser("list", help="list cycle scores (count + latest id)")
+    lst.add_argument("--repo", default=".")
+    lst.set_defaults(
+        func=lambda args: print(
+            json.dumps(list_scores(Path(args.repo)), indent=2)
+        )
+    )
+
+    args = p.parse_args(argv)
+    args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
