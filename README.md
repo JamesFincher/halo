@@ -478,7 +478,16 @@ $HALO_SYSTEM/scripts/halo evidence .
 | `halo-go` | Autonomous doctrine + self-prompt |
 | `halo-status` / `triage` / `doctor` / `pause` / `escalate` / `handoff` / `revise` | Observe & control |
 
-Slash: `/halo-loop`, `/halo-loop-cancel`.
+Slash (after `grok plugin install ~/code/halo --trust`):
+
+| Command | What it does |
+|---------|----------------|
+| **`/go`** | **Arm permanent build loop** + start autonomous work (preferred) |
+| `/halo-go` | Same as `/go` |
+| `/halo-loop` | Same arming script (older name) |
+| `/stop-loop` / `/halo-loop-cancel` | Disarm loop |
+
+CLI equivalent: `halo go . --max 50` then keep working; Stop hook re-injects until cancel.
 
 ---
 

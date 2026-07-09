@@ -1,7 +1,7 @@
 {
   "name": "halo",
-  "description": "Autonomous product factory with true Stop-hook loop (re-inject NEXT_PROMPT).",
-  "version": "0.7.0",
+  "description": "Autonomous product factory. Slash: /go arms permanent Stop-hook build loop.",
+  "version": "0.7.1",
   "keywords": [
     "halo",
     "autonomous",
@@ -9,7 +9,12 @@
     "stop-hook",
     "ralph",
     "prd",
-    "build"
+    "build",
+    "go",
+    "halo-go",
+    "slash"
   ],
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills",
+  "commands": "./commands"
 }
