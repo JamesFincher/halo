@@ -27,6 +27,10 @@ echo "[watchdog] root=$ROOT sleep=${SLEEP}s pid=$$  stop: halo go --off; kill \$
 echo $$ > "$PIDFILE"
 
 while true; do
+  if [[ -f "$ROOT/.halo/OFF" ]]; then
+    echo "[watchdog] .halo/OFF present — exit"
+    exit 0
+  fi
   if [[ -f "$ROOT/.halo/loop.json" ]]; then
     active="$($PY -c "import json;print(json.load(open('$ROOT/.halo/loop.json')).get('active'))" 2>/dev/null || echo False)"
   else

@@ -7,11 +7,11 @@
 | Project rules | `AGENTS.md` | `AGENTS.md` + product template |
 | Skills | `.grok/skills/<name>/SKILL.md` | `halo-*` skills |
 | Plugin | `.grok-plugin/`, `grok plugin install` | This repo as plugin |
-| Headless one-shot | `grok -p` / `--prompt-file` | `halo continue` / self-prompt spawn |
-| Goal mode | `/goal` + `update_goal` | `halo go` + standing objective |
-| Recurring prompt | `/loop` / scheduler | `halo loop` / `self_prompt_mode: loop` |
-| Auto-approve | `--yolo` / `--always-approve` | Required for unattended headless |
-| Max turns | `--max-turns N` | Bound one headless segment |
+| Headless one-shot | `grok -p` | `halo continue` / self-prompt spawn |
+| Goal mode | `/goal` | `halo go` + standing objective |
+| Recurring prompt | `/loop` (if documented by your TUI) | `halo watchdog` (supervisor) |
+| Auto-approve | `/hooks-trust` or `--trust` | Required for project hooks to run |
+| Max turns | `--max-turns` if supported | `max_iterations` in `loop.json` |
 
 ## Skill discovery order
 
@@ -22,22 +22,26 @@
 
 Product TARGET must see Halo skills via plugin install or `halo link-skills`.
 
-## True session loop (Stop hook)
+## Continuous drive (Stop is passive)
+
+On Grok Build, **only `PreToolUse` can block**. `Stop` is **passive**; `decision:block` + `reason` is best-effort and ignored for continuity.
 
 ```
-Stop event → hooks/halo-stop-loop.sh
-  → if .halo/loop.json active
-  → stdout: { "decision": "block", "reason": <NEXT_PROMPT text> }
-  → harness re-injects reason as next user message
+agent works → Stop event (passive) → hooks/halo-stop-loop.sh
+  → if .halo/loop.json active and no .halo/OFF
+  → spawn headless: grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json
+  → next process loads skill halo-go and executes one unit
 ```
 
-Slash: `/halo-loop` · CLI: `halo loop` · Cancel: `/halo-loop-cancel`.
+The primary supervisor is the watchdog: `halo watchdog . 15`.
+
+Slash: `/halo-loop` (arm) · CLI: `halo loop` · Cancel: `/halo-loop-cancel` (sets `.halo/OFF`).
 
 ## Self-prompt modes
 
 - **A — Inline**: same session, continue phase driver, cap `autonomous_max_cycles`.
-- **B — Headless re-entry**: `halo continue --spawn` runs `grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve --max-turns 80`.
-- **C — Goal / Loop**: `/goal <standing>` or `/loop 15m <read NEXT_PROMPT>`.
+- **B — Headless re-entry**: `halo continue --spawn` runs `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json`.
+- **C — Goal / optional `/loop`**: `/goal <standing>` or a same-session inject command if your TUI documents one.
 
 Default under `halo go`: A then B.
 
@@ -66,21 +70,25 @@ export TARGET=/path/to/product
 "$HALO_SYSTEM/scripts/halo" continue "$TARGET" --spawn
 ```
 
-## /loop recipe
+## Watchdog recipe
 
+```bash
+halo watchdog . 15
 ```
-/loop 20m Read .halo/NEXT_PROMPT.md and .halo/state.json. If autonomous and not complete, execute skill halo-go one unit. Never ask. Update baton and NEXT_PROMPT.
-```
+
+## Optional same-session TUI inject
+
+Only if your TUI documents a stable command. Otherwise prefer headless or watchdog. Do not invent `scheduler_create`, `scheduler_list`, or `scheduler_delete`.
 
 ## Failure modes
 
 | Failure | Fix |
 |---------|-----|
 | Next session ignores halo-go | `link-skills` / plugin install |
-| Headless hangs on permissions | `--always-approve` / `bypassPermissions` |
+| Headless hangs on permissions | `/hooks-trust` or `grok --trust` + `XAI_API_KEY` for non-interactive |
 | Infinite headless spawn | `max_cycles` + `self_prompt_spawn` only when ACTIVE |
 | Skills not found | `halo link-skills` |
-| Context blowup | `max_turns` + compact |
+| Context blowup | `max_iterations` + compact |
 
 ## Alignment checklist
 

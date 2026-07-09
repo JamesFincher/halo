@@ -1,6 +1,6 @@
 ---
 name: stop-loop
-description: Disarm Halo permanent build loop (alias for /halo-loop-cancel).
+description: Disarm Halo continuous build drive (alias for /halo-loop-cancel).
 ---
 
 # /stop-loop — kill continuous drive
@@ -15,8 +15,12 @@ pkill -f "halo-watchdog.sh" 2>/dev/null || true
 pkill -f "scripts/halo-watchdog" 2>/dev/null || true
 ```
 
-Also cancel any Grok TUI `/loop` or scheduler jobs (they are separate from Halo loop.json):
-- Tasks pane: `Ctrl+B` → delete the Halo drive scheduler
-- Or agent: `scheduler_list` then `scheduler_delete` for the Halo prompt id
+`cancel-halo-loop.sh` must:
 
-After this: autonomous=false, loop inactive, no headless spawn, no 60s injects.
+- Set kill switch (`.halo/OFF` and/or `autonomous=false` in `.halo/loop.json` / `state.json`)
+- Ensure Stop/watchdog paths no-op when `OFF`
+- Not rely on TUI-only teardown
+
+Optional (TUI only): if you started a same-session inject job, remove it from the Tasks pane (`Ctrl+B`) if present. Do not require undocumented `scheduler_*` tools for a successful cancel.
+
+After this: autonomous off, no headless spawn, no watchdog. Normal agent stop is allowed.

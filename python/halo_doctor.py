@@ -62,6 +62,11 @@ REQUIRED_CLI = [
     "arena",
     "commit-unit",
     "loop",
+    # D168: continuous-drive surface (help + case arms)
+    "plan",
+    "watchdog",
+    "cycle-smoke",
+    "reinstantiate",
 ]
 
 REQUIRED_PYTHON = [
@@ -112,11 +117,13 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
     else:
         text = cli.read_text(encoding="utf-8")
         for verb in REQUIRED_CLI:
-            # case "$cmd" in arms use verb)
-            if not re.search(rf"\n\s*{re.escape(verb)}\)", text) and f" {verb}" not in text:
-                # help text mention
-                if verb not in text:
-                    issues.append({"level": "error", "code": "cli_verb_missing", "item": verb})
+            # case "$cmd" in arms: verb) or verb|alias)
+            case_arm = re.search(
+                rf"\n\s*{re.escape(verb)}(?:\||\))",
+                text,
+            )
+            if not case_arm and f" {verb}" not in text and verb not in text:
+                issues.append({"level": "error", "code": "cli_verb_missing", "item": verb})
 
     for doc in (
         "docs/WORKFLOWS.md",

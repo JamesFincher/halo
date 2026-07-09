@@ -1,10 +1,10 @@
 ---
 name: halo-go
-description: Alias for /go — continuous autonomous drive (Grok headless + optional /loop).
+description: Alias for continuous Halo drive (Grok headless re-entry; Stop is passive).
 argument-hint: "[--max N] [--no-spawn]"
 ---
 
-# /halo-go → same as /go
+# /halo-go → continuous drive
 
 ```!
 export HALO_SYSTEM="${HALO_SYSTEM:-${GROK_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}}"
@@ -13,5 +13,21 @@ cd "$TARGET"
 bash "${HALO_SYSTEM}/scripts/setup-halo-loop.sh" $ARGUMENTS
 ```
 
-Grok **Stop is passive** — continuous work uses **headless spawn**, not decision:block alone.  
-Load skill **halo-go**, execute `.halo/NEXT_PROMPT.md`, do not wait for the human.
+Grok: Stop is passive — continuous work uses **headless spawn / supervisor**, not `decision:block` on Stop.
+
+Then immediately:
+
+- Read baton + `.halo/NEXT_PROMPT.md` + feature/phase list
+- Execute one unit
+- Rewrite self-contained `.halo/NEXT_PROMPT.md`
+- Do not wait for the human
+
+Prefer documented headless form for spawns:
+
+```bash
+grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json
+```
+
+`--no-spawn`: arm state/files only; do not start watchdog/headless children.
+
+Project hooks: if hooks live under the repo, user needs `/hooks-trust` or `grok --trust` once.

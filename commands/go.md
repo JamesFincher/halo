@@ -4,13 +4,13 @@ description: "Halo GO — continuous autonomous build. Grok-native headless driv
 argument-hint: "[--max N] [--no-spawn]"
 ---
 
-# /go — continuous Halo build (Grok-fixed)
+# /go — continuous Halo build
 
 ## Why you used to have to re-message
 
 Grok Build **Stop hooks are passive** (docs: only `PreToolUse` blocks).  
 Ralph `decision:block` + `reason` works on Claude Code; **Grok ignores the block**.  
-Halo now **headless-spawns** `grok --prompt-file .halo/NEXT_PROMPT.md --always-approve` on Stop so work continues without you typing.
+Halo now **headless-spawns** the next turn via `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json` so work continues without you typing.
 
 ## 1. Arm drive (run now)
 
@@ -21,19 +21,11 @@ cd "$TARGET"
 bash "${HALO_SYSTEM}/scripts/setup-halo-loop.sh" $ARGUMENTS
 ```
 
-## 2. Same-session TUI inject (strongly recommended)
-
-After arming, create a Grok scheduler so the **open TUI** also gets synthetic turns (headless is a separate process):
-
-Read `.halo/scheduler-prompt.txt` and run the platform `/loop` or `scheduler_create` with interval **60s**, `fire_immediately: true`, prompt = that file’s contents.
-
-If you cannot call scheduler tools, still OK — headless spawn from Stop will drive in the background.
-
-## 3. Work now (skill halo-go)
+## 2. Work now (skill halo-go)
 
 1. Read baton + NEXT_PROMPT + feature-list  
 2. Execute **one** unit  
-3. Refresh NEXT_PROMPT; when you stop, drive continues without the human  
+3. Refresh NEXT_PROMPT; when you stop, drive continues via headless re-entry or supervisor
 
 ## Cancel
 

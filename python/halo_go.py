@@ -39,7 +39,7 @@ def log_line(repo: Path, msg: str) -> None:
 
 
 def arm_loop(repo: Path, max_cycles: int) -> None:
-    """Write .halo/loop.json so Stop-hook true loop is armed (not only state.autonomous)."""
+    """Write .halo/loop.json so continuous drive is armed (not only state.autonomous)."""
     loop_p = repo / ".halo" / "loop.json"
     existing: dict[str, Any] = {}
     if loop_p.exists():
@@ -55,7 +55,8 @@ def arm_loop(repo: Path, max_cycles: int) -> None:
         or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "session_id": existing.get("session_id") or "",
         "completion_promise": existing.get("completion_promise") or "HALO_COMPLETE",
-        "protocol": "stop-hook-block-reason",
+        "protocol": "grok-headless+watchdog",
+        "protocol_note": "Grok Stop is passive; headless re-entry via grok -p $(cat NEXT_PROMPT) is the continue path",
         "stagnant_iters": int(existing.get("stagnant_iters") or 0),
         "last_head": existing.get("last_head"),
     }
@@ -122,7 +123,7 @@ def ensure_watchdog(repo: Path, *, sleep_sec: int = 15) -> dict[str, Any]:
 
 
 def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = True) -> dict[str, Any]:
-    """Enable autonomous + true loop.
+    """Enable autonomous + headless drive.
 
     spawn defaults TRUE: Grok Build ignores Stop decision:block (passive hooks),
     so headless re-entry is required for hands-off continue.
@@ -168,13 +169,13 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
     baton = repo / ".halo" / "baton.md"
     baton.write_text(
         "# Baton\n"
-        "- Mode: AUTONOMOUS (halo-go) + SELF-PROMPT + true Stop loop\n"
+        "- Mode: AUTONOMOUS (halo-go) + headless re-entry + watchdog supervisor\n"
         f"- Phase: {data.get('phase')}\n"
         "- Rule: never ask; defaults; drive phase machine; end every unit by refreshing NEXT_PROMPT.md\n"
         "- Hard stops only: kill switch, denylist, 3 fails, true BLOCKED secrets, budget, explicit stop\n"
         f"- Max cycles this run: {max_cycles}\n"
-        "- Loop: .halo/loop.json active=true (Stop re-injects NEXT_PROMPT)\n"
-        "- Self-prompt: inline continue, then headless `halo continue --spawn` if needed\n"
+        "- Loop: .halo/loop.json active=true; Grok Stop is passive; headless/watchdog re-entry\n"
+        "- Self-prompt: headless `grok -p $(cat NEXT_PROMPT)` or `halo continue --spawn` if needed\n"
         "- Next: load skill halo-go; execute plan; write NEXT_PROMPT\n",
         encoding="utf-8",
     )
@@ -192,6 +193,8 @@ def enable(repo: Path, max_cycles: int, self_prompt: bool = True, spawn: bool = 
         wd = ensure_watchdog(repo)
         log_line(repo, f"watchdog ensure: {wd}")
         data["_watchdog"] = wd
+    # Clear kill switch so a fresh arming can run (cancel writes OFF)
+    (repo / ".halo" / "OFF").unlink(missing_ok=True)
     return data
 
 
@@ -201,6 +204,8 @@ def disable(repo: Path) -> dict[str, Any]:
     data["require_human_gate"] = True
     save(repo, data)
     disarm_loop(repo, "go_disabled")
+    # Set OFF kill switch so any headless children or Stop hooks stop immediately
+    (repo / ".halo" / "OFF").write_text("go_disabled\n", encoding="utf-8")
     log_line(repo, "autonomous DISABLED")
     baton = repo / ".halo" / "baton.md"
     prev = data.get("phase") or "unknown"
@@ -284,7 +289,7 @@ def next_actions(repo: Path) -> list[str]:
         if fs.get("all_pass") and fs.get("total", 0) > 0:
             if data.get("dogfood_mode") == "compounding" or data.get("dogfood"):
                 actions.append(
-                    "dogfood compounding all_pass (seed may wait until next UTC day) — "
+                    "compounding all_pass (seed may wait until next UTC day) — "
                     "implement polish or wait for auto-seed"
                 )
             else:
@@ -304,7 +309,7 @@ def next_actions(repo: Path) -> list[str]:
             else:
                 n = data.get("autonomous_max_cycles") or 5
                 actions.append(f"run up to {n} halo-build cycles; pick next passes:false feature")
-            actions.append("probe before any deploy URL share; dogfood: run halo cycle-smoke .")
+            actions.append("probe before any deploy URL share; run `halo cycle-smoke .`")
     elif phase == "complete":
         actions.append("DONE: phase complete — emit <promise>HALO_COMPLETE</promise> if loop armed")
     else:
@@ -391,7 +396,7 @@ def main() -> None:
                     "drive": drive_result,
                     "note": (
                         "Grok Stop hooks are passive — continuous work uses headless "
-                        "spawn + optional TUI /loop. decision:block alone will NOT re-prompt."
+                        "re-entry or watchdog supervisor. decision:block alone will NOT re-prompt."
                     ),
                 },
                 indent=2,

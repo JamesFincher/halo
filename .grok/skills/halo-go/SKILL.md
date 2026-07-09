@@ -44,22 +44,22 @@ Arm with **`/go`** or `halo go . --max 50` → `.halo/loop.json` active + headle
 
 ### Grok Build (primary target)
 
-**Stop hooks are passive** (only PreToolUse blocks). Ralph `decision:block` is **ignored**.
+**Stop hooks are passive** (only `PreToolUse` can block). Ralph `decision:block` + `reason` is **ignored** for `Stop`.
 
 Real continue path:
 
 1. **Headless spawn** (default ON): Stop runs `halo_drive.spawn_headless` →  
-   `grok -p --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --yolo`
-2. **Optional same-session TUI:** `/loop 60s` with text from `.halo/scheduler-prompt.txt`  
-   (or agent `scheduler_create` interval `60s`, fire_immediately)
+   `grok -p "$(cat .halo/NEXT_PROMPT.md)" --always-approve --no-auto-update --output-format streaming-json`
+2. **Single supervisor** (recommended): `halo watchdog . 15` runs planner and re-spawns under one pid. Avoid unbounded `Stop → spawn → Stop` trees.
+3. **Optional same-session TUI:** `/loop` with prompt from `.halo/NEXT_PROMPT.md` only if your plugin/TUI documents a stable inject command. Do not invent `scheduler_create`/`scheduler_list`/`scheduler_delete`.
 
 Disable spawn only with `halo go --no-spawn` / `HALO_NO_SPAWN=1` (then you must message).
 
 ### Claude-compatible hosts
 
-Stop still emits Ralph JSON; host may re-inject `reason` as next user turn.
+Stop still emits Ralph JSON; host may re-inject `reason` as next user turn. `PreToolUse` is the right place for safety, not continuity.
 
-See `docs/TRUE-LOOP.md`. Cancel: `/stop-loop` / `halo loop-cancel`.
+See `docs/TRUE-LOOP.md`. Cancel: `/stop-loop` / `halo loop-cancel` (sets `.halo/OFF` + `autonomous=false`).
 
 ---
 
@@ -92,15 +92,14 @@ Then either:
 "$HALO_SYSTEM/scripts/halo" continue "$TARGET" --spawn
 ```
 
-or (equivalent):
+or (equivalent headless form):
 
 ```bash
-grok -p --prompt-file "$TARGET/.halo/NEXT_PROMPT.md" \
-  --cwd "$TARGET" --yolo --max-turns 80
+grok -p "$(cat "$TARGET/.halo/NEXT_PROMPT.md")" --always-approve --no-auto-update --output-format streaming-json
 ```
 
 Only spawn if `self_prompt_spawn` true **or** human/CI invoked `continue --spawn`.  
-Avoid fork bombs: one spawn chain; check `status` not COMPLETE; respect kill switch.
+Avoid fork bombs: one spawn chain; check `status` not COMPLETE; respect `.halo/OFF` and kill switch.
 
 ### 4. Grok TUI long-run — Mode C
 
@@ -110,11 +109,7 @@ At start of go (if in interactive TUI), you **may** set standing goal (do not as
 /goal Run Halo autonomous factory on this repo. Skill halo-go. Never ask. Drive phases. Refresh .halo/NEXT_PROMPT.md each unit. Probe before deploy URLs.
 ```
 
-Optional heartbeat:
-
-```
-/loop 20m Read .halo/state.json and .halo/NEXT_PROMPT.md. If autonomous and not complete, execute one halo-go unit without asking. Update baton and NEXT_PROMPT.
-```
+Optional same-session inject only if your TUI documents a stable command; otherwise use the headless/supervisor path.
 
 ---
 

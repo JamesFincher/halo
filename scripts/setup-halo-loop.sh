@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Arm Halo continuous drive for this product workspace.
 # CRITICAL (Grok Build): Stop hooks are PASSIVE — decision:block does NOT re-prompt.
-# Continuous work = headless spawn (default) + optional TUI /loop scheduler.
+# Continuous work = headless spawn (default) + single supervisor (watchdog).
 set -euo pipefail
 
 HALO_SYS="${HALO_SYSTEM:-${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}}"
@@ -55,6 +55,17 @@ cat > "$HOOK_DIR/halo-true-loop.json" <<EOF
           }
         ]
       }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export HALO_SYSTEM=\"$HALO_SYS\"; export GROK_WORKSPACE_ROOT=\"\${GROK_WORKSPACE_ROOT:-\$PWD}\"; export HALO_HOOK_TYPE=StopFailure; bash \"$HALO_SYS/hooks/halo-stop-loop.sh\"",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
@@ -78,31 +89,24 @@ d.update({
   "max_iterations": int("$MAX"),
   "started_at": d.get("started_at") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
   "completion_promise": "HALO_COMPLETE",
-  "protocol": "grok-headless+ralph-json",
-  "protocol_note": "Grok Stop is passive; headless spawn is the continue path",
+  "protocol": "grok-headless+watchdog",
+  "protocol_note": "Grok Stop is passive; headless re-entry via grok -p $(cat NEXT_PROMPT) is the continue path",
 })
 if "iteration" not in d:
     d["iteration"] = 0
 loop_p.write_text(json.dumps(d, indent=2) + "\n")
 
-# scheduler prompt for TUI same-session inject
-sp = root / ".halo" / "scheduler-prompt.txt"
-import subprocess, sys, os
-os.environ["PYTHONPATH"] = "$HALO_SYS/python"
-text = subprocess.check_output(
-    [sys.executable, "$HALO_SYS/python/halo_drive.py", "--repo", "$ROOT", "scheduler-prompt"],
-    text=True,
-)
-sp.write_text(text.strip() + "\n")
+# Clear kill switch so a new arming can run (cancel writes OFF)
+off_p = root / ".halo" / "OFF"
+if off_p.exists():
+    off_p.unlink()
+
 print("Halo continuous drive ARMED")
 print(f"  loop.json active=true max=$MAX")
-print(f"  protocol: headless spawn on Stop (Grok) + Ralph JSON (Claude)")
+print(f"  protocol: headless re-entry via grok -p $(cat NEXT_PROMPT) + watchdog supervisor")
 print(f"  user hook: ~/.grok/hooks/halo-true-loop.json")
 print(f"  NEXT_PROMPT: $ROOT/.halo/NEXT_PROMPT.md")
-print(f"  scheduler text: $ROOT/.halo/scheduler-prompt.txt")
 print("")
-print("Same-session TUI (optional extra):")
-print(f"  /loop 60s \$(cat .halo/scheduler-prompt.txt)")
 print("Cancel: /stop-loop  |  halo loop-cancel  |  halo go --off")
 if "$NO_SPAWN" == "1":
     print("WARNING: --no-spawn set; on Grok you WILL need to message manually")

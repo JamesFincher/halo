@@ -57,10 +57,10 @@ halo — autonomous product development system
   commit-unit [path] --id Sxxx [--message …] [--dry-run]
                            safe auto-commit (never force-adds .halo/)
   drive [path] …           spawn|status|should-drive (Grok continuous drive)
-  plan [path]              Refresh NEXT_PROMPT via background planner (no wait)
-  watchdog [path] [secs]   Planner+spawn loop (default 15s; better than /loop 60s)
-  cycle-smoke [path]       Factory smoke test (compile+doctor+hygiene)
-  reinstantiate [path]     Reset local control plane + compounding backlog
+  plan [path]              Continuous drive: refresh NEXT_PROMPT via planner
+  watchdog [path] [secs]   Continuous drive: planner+spawn loop (default 15s)
+  cycle-smoke [path]       Continuous drive: factory smoke (compile+doctor+hygiene)
+  reinstantiate [path]     Continuous drive: reset control plane + compounding backlog
   lock-runner [path]       acquire single-runner lock
   unlock-runner [path]     release runner lock
   stories-sync [path]       Sync STORIES.md from feature-list passes
@@ -518,7 +518,7 @@ PY
       "$PY" "$HALO_SYSTEM/python/halo_next_prompt.py" --repo "$path" --halo-system "$HALO_SYSTEM" --write
       echo "wrote $path/.halo/NEXT_PROMPT.md"
       echo "spawn: $0 continue $path --spawn"
-      echo "or: grok -p --prompt-file $path/.halo/NEXT_PROMPT.md --cwd $path --yolo --max-turns 80"
+      echo "or: grok -p \"\$(cat $path/.halo/NEXT_PROMPT.md)\" --cwd $path --always-approve --no-auto-update --output-format streaming-json"
     fi
     ;;
 
@@ -691,7 +691,7 @@ PY
     rest=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        spawn|status|scheduler-prompt|should-drive) rest+=("$1"); shift ;;
+        spawn|status|should-drive) rest+=("$1"); shift ;;
         --*) rest+=("$1"); shift ;;
         *) path="$(repo_arg "$1")"; shift ;;
       esac

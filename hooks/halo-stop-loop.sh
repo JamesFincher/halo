@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Halo Stop hook — true session loop (Ralph protocol)
-# Emits: {"decision":"block","reason":"<NEXT_PROMPT>","systemMessage":"..."}
+# Halo Stop hook — passive on Grok; headless re-entry is the continue path.
+# Emits Ralph-compatible JSON for Claude; on Grok decision:block is best-effort only.
 # Fail-open: errors → exit 0 with no stdout (allow stop).
 
 set -euo pipefail
@@ -63,8 +63,13 @@ if status in ("PAUSED", "ESCALATED", "COMPLETE") or phase == "complete":
     active = False
 if state.get("HALO_KILL_SWITCH"):
     active = False
+# OFF kill switch: cancel writes .halo/OFF; setup removes it on re-arm
+if (cwd / ".halo" / "OFF").exists():
+    active = False
 if not active:
     raise SystemExit(0)
+
+hook_type = os.environ.get("HALO_HOOK_TYPE", "Stop")
 
 # session isolation — OPT-IN only.
 # Default OFF: Grok continuous drive uses headless spawn + TUI; different
@@ -344,7 +349,7 @@ msg = (
     + (" | DRIVE_SPAWN" if spawn_meta.get("ok") else "")
 )
 # Ralph / Claude Code Stop protocol — reason MAY re-inject on Claude hosts.
-# On Grok this is best-effort only; real continue is spawn_meta / scheduler.
+# On Grok this is best-effort only; real continue is spawn_meta / headless.
 out = {
     "decision": "block",
     "reason": prompt,
@@ -353,7 +358,7 @@ out = {
     "additionalContext": prompt,
     "halo_drive": spawn_meta,
 }
-# Audit trail for dogfood / operators
+# Audit trail for operators
 try:
     log_dir = cwd / ".halo" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -364,6 +369,7 @@ try:
         "struggle": struggle,
         "spawn": spawn_meta,
         "systemMessage": msg,
+        "hook_type": hook_type,
     }
     (log_dir / "stop-last.json").write_text(
         json.dumps(stop_last, indent=2) + "\n", encoding="utf-8"

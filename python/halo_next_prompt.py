@@ -672,15 +672,13 @@ def write_prompt(
 
 
 def spawn_headless(repo: Path, max_turns: int = 80) -> dict[str, Any]:
-    """Delegate to halo_drive (correct grok CLI: --prompt-file + --always-approve)."""
+    """Delegate to halo_drive (documented headless: grok -p $(cat NEXT_PROMPT))."""
     try:
         from halo_drive import spawn_headless as drive_spawn
 
         return drive_spawn(Path(repo), max_turns=max_turns, force=True)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e), "cmd": cmd, "prompt": str(prompt)}
 
 
 def main() -> None:

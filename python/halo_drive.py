@@ -3,12 +3,11 @@
 
 Official Grok hooks docs: only PreToolUse is blocking; Stop is passive.
 Halo still emits Ralph-compatible JSON for Claude-compatible hosts, but on Grok
-the real continue path is:
+the real continue path is headless re-entry:
 
-  1) headless: grok --prompt-file .halo/NEXT_PROMPT.md --cwd TARGET --always-approve
-  2) scheduler / /loop injecting a synthetic user turn into the TUI session
+  grok -p "$(cat .halo/NEXT_PROMPT.md)" --output-format streaming-json
 
-This module implements (1) with a single-runner lock to avoid fork bombs.
+This module implements that with a single-runner lock to avoid fork bombs.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -222,18 +222,18 @@ def spawn_headless(
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"drive-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.log"
 
-    # NOTE: Do NOT use `grok -p --prompt-file` — `-p/--single` requires a
-    # positional prompt value, so `-p --prompt-file` fails CLI parse.
-    # Correct headless: --prompt-file alone + --always-approve (not --yolo).
+    # Documented Grok headless (overview): grok -p "<prompt>".
+    # Optional: --output-format streaming-json for machine-readable logs.
+    # --always-approve is documented for unattended headless (skips permission prompts).
+    # --no-auto-update is documented for scripts/CI to skip background update checks.
+    # Use bash + exec so the shell process is replaced by grok; proc.pid is the real grok PID.
+    grok_quoted = shlex.quote(str(grok))
+    prompt_quoted = shlex.quote(str(prompt))
+    repo_quoted = shlex.quote(str(repo))
     cmd = [
-        grok,
-        "--prompt-file",
-        str(prompt),
-        "--cwd",
-        str(repo),
-        "--always-approve",
-        "--max-turns",
-        str(max_turns),
+        "bash",
+        "-c",
+        f"exec {grok_quoted} -p \"$(cat {prompt_quoted})\" --cwd {repo_quoted} --always-approve --no-auto-update --output-format streaming-json",
     ]
     # Prefer plugin trust if available
     try:
@@ -345,19 +345,6 @@ def _budget_status(repo: Path) -> dict[str, Any]:
         return {"verdict": "DEGRADE", "reason": f"budget check failed: {e}"}
 
 
-def scheduler_prompt(repo: Path) -> str:
-    """Text for Grok /loop or scheduler_create — same-session inject."""
-    return (
-        f"Halo autonomous drive (Grok-native). TARGET={repo}. "
-        "Read .halo/NEXT_PROMPT.md and .halo/baton.md and .halo/state.json. "
-        "If autonomous or loop active and not COMPLETE/PAUSED/ESCALATED: "
-        "load skill halo-go; execute ONE unit only; never ask; "
-        "refresh NEXT_PROMPT via `halo continue .`; "
-        "evidence-gated feature pass; never force-add .halo/ when dogfooding factory. "
-        "If loop inactive or phase complete: stop and do nothing."
-    )
-
-
 def main() -> None:
     p = argparse.ArgumentParser(prog="halo_drive")
     p.add_argument("--repo", default=".")
@@ -369,7 +356,6 @@ def main() -> None:
     s.add_argument("--max-turns", type=int, default=80)
 
     sub.add_parser("status", help="show drive/loop status")
-    sub.add_parser("scheduler-prompt", help="print prompt text for /loop or scheduler")
     sub.add_parser("should-drive", help="exit 0 if drive should continue")
 
     args = p.parse_args()
@@ -436,9 +422,6 @@ def main() -> None:
                 indent=2,
             )
         )
-        return
-    if args.cmd == "scheduler-prompt":
-        print(scheduler_prompt(repo))
         return
     if args.cmd == "should-drive":
         raise SystemExit(0 if loop_active(repo) and work_remains(repo) else 1)
