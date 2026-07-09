@@ -314,7 +314,7 @@ def next_actions(repo: Path) -> list[str]:
 
 
 def plan_score_fields(repo: Path) -> dict[str, Any]:
-    """D137: top-level scores/trajectories counts + match for go --plan JSON."""
+    """D137/D140: scores/trajectories counts, match, and latest ids for go --plan JSON."""
     try:
         from halo_features import summary as feature_summary
 
@@ -329,12 +329,16 @@ def plan_score_fields(repo: Path) -> dict[str, Any]:
             "scores_count": sc,
             "trajectories_count": tc,
             "scores_trajectories_match": match,
+            "latest_score_id": fs.get("latest_score_id"),
+            "latest_trajectory_id": fs.get("latest_trajectory_id"),
         }
     except Exception:  # noqa: BLE001
         return {
             "scores_count": 0,
             "trajectories_count": 0,
             "scores_trajectories_match": True,
+            "latest_score_id": None,
+            "latest_trajectory_id": None,
         }
 
 
