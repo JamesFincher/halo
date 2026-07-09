@@ -186,6 +186,9 @@ def append_features(repo: Path, features: list[dict[str, Any]]) -> dict[str, Any
         }
         if f.get("milestone"):
             row["milestone"] = f["milestone"]
+        # Preserve dogfood compounding flags (FILE_DIFF gate)
+        if "requires_code" in f:
+            row["requires_code"] = bool(f.get("requires_code"))
         data.setdefault("features", []).append(row)
         existing.add(fid)
     save_list(repo, data)

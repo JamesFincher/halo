@@ -7,8 +7,12 @@ import argparse
 import json
 import re
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Autonomous + active loop: heartbeat older than this is a doctor warn (D078)
+STALE_HEARTBEAT_SEC = 90
 
 # Skills that must exist (workflow inventory)
 REQUIRED_SKILLS = [
@@ -198,6 +202,61 @@ def check_system(halo_sys: Path) -> list[dict[str, Any]]:
     return issues
 
 
+def _stale_watchdog_issues(repo: Path, *, max_age: int = STALE_HEARTBEAT_SEC) -> list[dict[str, Any]]:
+    """Warn when autonomous loop has no fresh watchdog heartbeat (D078)."""
+    hb_path = repo / ".halo" / "logs" / "watchdog-heartbeat.json"
+    if not hb_path.is_file():
+        return [
+            {
+                "level": "warn",
+                "code": "watchdog_heartbeat_missing",
+                "item": "autonomous loop without .halo/logs/watchdog-heartbeat.json — start halo watchdog",
+            }
+        ]
+    try:
+        hb = json.loads(hb_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return [
+            {
+                "level": "warn",
+                "code": "watchdog_heartbeat_corrupt",
+                "item": "watchdog-heartbeat.json unreadable",
+            }
+        ]
+    at = hb.get("at")
+    if not at:
+        return [
+            {
+                "level": "warn",
+                "code": "watchdog_heartbeat_missing_at",
+                "item": "heartbeat missing at field",
+            }
+        ]
+    try:
+        ts = str(at).replace("Z", "+00:00")
+        then = datetime.fromisoformat(ts)
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - then).total_seconds()
+    except (TypeError, ValueError, OSError):
+        return [
+            {
+                "level": "warn",
+                "code": "watchdog_heartbeat_bad_at",
+                "item": str(at),
+            }
+        ]
+    if age > max_age:
+        return [
+            {
+                "level": "warn",
+                "code": "watchdog_heartbeat_stale",
+                "item": f"heartbeat age {int(age)}s > {max_age}s — restart halo watchdog",
+            }
+        ]
+    return []
+
+
 def check_product(repo: Path) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     state_p = repo / ".halo" / "state.json"
@@ -250,10 +309,12 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
     if state.get("autonomous"):
         # Fail closed: autonomous without an active true loop is a broken drive (D037)
         loop_p = repo / ".halo" / "loop.json"
+        loop_active = False
         if loop_p.exists():
             try:
                 loop = json.loads(loop_p.read_text(encoding="utf-8"))
-                if not loop.get("active"):
+                loop_active = bool(loop.get("active"))
+                if not loop_active:
                     issues.append(
                         {
                             "level": "error",
@@ -271,6 +332,9 @@ def check_product(repo: Path) -> list[dict[str, Any]]:
                     "item": "autonomous without loop.json — run halo go",
                 }
             )
+        # D078: stale watchdog heartbeat while autonomous+active loop
+        if loop_active:
+            issues.extend(_stale_watchdog_issues(repo))
 
     skills = repo / ".grok" / "skills" / "halo-go"
     if state.get("autonomous") and not skills.exists() and not skills.is_symlink():
