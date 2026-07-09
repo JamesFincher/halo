@@ -865,7 +865,10 @@ def maybe_seed_compounding_batch(
 
 
 def _factory_diff_paths(repo: Path) -> list[str]:
-    """Changed factory paths (excludes .halo/ and archives)."""
+    """Changed factory paths (excludes .halo/ and archives).
+
+    D167: .halo/ and .halo-archive/ alone never satisfy the FILE_DIFF gate.
+    """
     import subprocess
 
     names: set[str] = set()
@@ -888,6 +891,14 @@ def _factory_diff_paths(repo: Path) -> list[str]:
                 continue
             names.add(line)
     return sorted(names)
+
+
+def _needs_factory_file_diff(feature: dict[str, Any]) -> bool:
+    """D167: only requires_code=true units need factory FILE_DIFF before pass.
+
+    requires_code false or absent → no gate (docs/meta units allowed).
+    """
+    return feature.get("requires_code") is True
 
 
 def pass_score_fields(repo: Path) -> dict[str, Any]:
@@ -922,7 +933,8 @@ def set_pass(
 ) -> dict[str, Any]:
     """Mark feature pass/fail. Pass requires evidence unless --force.
 
-    requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
+    D167: requires_code=true features also need factory FILE_DIFF (anti smoke-thrash).
+    requires_code false/absent skips the FILE_DIFF gate. --force bypasses both gates.
     D147–D152: return value includes scores_count / trajectories_count /
     scores_trajectories_match + latest_score_id / latest_trajectory_id
     (post-mark) for both pass and fail CLI stdout (operators + inject).
@@ -941,12 +953,13 @@ def set_pass(
                         f".halo/evidence/ (e.g. {feature_id}-green.json) or --evidence PATH. "
                         f"Use --force only for human override."
                     )
-                if f.get("requires_code") is True:
+                if _needs_factory_file_diff(f):
                     diffs = _factory_diff_paths(repo)
                     if not diffs:
                         raise SystemExit(
                             f"refuse pass for {feature_id}: requires_code but no factory "
-                            f"FILE_DIFF. Implement code first, or --force."
+                            f"FILE_DIFF (.halo/ alone does not count). "
+                            f"Implement code first, or --force."
                         )
                     f["factory_diff"] = diffs[:40]
                 try:
