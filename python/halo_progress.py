@@ -75,6 +75,7 @@ def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path
     detail = dict(detail or {})
     # D091: unit events auto-record factory dirty count
     # D128: unit events auto-record scores_count and trajectories_count
+    # D131: unit events auto-record scores_trajectories_match from final counts
     if str(event).lower() in _UNIT_EVENTS:
         if "dirty_count" not in detail:
             detail["dirty_count"] = factory_dirty_count(repo)
@@ -82,6 +83,10 @@ def append(repo: Path, event: str, detail: dict[str, Any] | None = None) -> Path
             detail["scores_count"] = scores_count(repo)
         if "trajectories_count" not in detail:
             detail["trajectories_count"] = trajectories_count(repo)
+        if "scores_trajectories_match" not in detail:
+            detail["scores_trajectories_match"] = (
+                int(detail["scores_count"]) == int(detail["trajectories_count"])
+            )
     row = {"at": utc_now(), "event": event, **detail}
     with jsonl.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
