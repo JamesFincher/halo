@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110/D113/D157)."""
+"""Six-dimension cycle scores + golden trajectory stubs for dogfood (D103/D104/D110/D113/D157/D158)."""
 
 from __future__ import annotations
 
@@ -32,6 +32,19 @@ _DEFAULT_DIM_SCORES: dict[str, float] = {
     "plan_coherence": 0.7,
     "task_completion": 0.8,
 }
+
+# D158: explicit golden trajectory step sequence for compounding APPROVED cycles.
+# GT-NNN.json `steps` defaults must stay in sync with this contract.
+GOLDEN_TRAJECTORY_STEPS: tuple[str, ...] = (
+    "plan",
+    "implement",
+    "unittest",
+    "cycle-smoke",
+    "evidence",
+    "features pass",
+    "factory commit",
+)
+GOLDEN_TRAJECTORY_SIGNATURE = "dogfood-stub-v1"
 
 
 def utc_now() -> str:
@@ -168,26 +181,28 @@ def write_golden_trajectory(
     feature_id: str,
     steps: list[str] | None = None,
 ) -> Path:
-    """Record minimal golden trajectory for APPROVED dogfood unit (D104)."""
+    """Record golden trajectory stub for APPROVED dogfood unit (D104/D158).
+
+    D158: sequential id GT-### equals path stem; non-empty step sequence
+    (defaults from GOLDEN_TRAJECTORY_STEPS); ``feature_id`` and ``git_head``
+    always present; ``schema_version`` is 1; signature is
+    GOLDEN_TRAJECTORY_SIGNATURE.
+    """
     traj = repo / ".halo" / "trajectories"
     n = _next_num(traj, "GT-")
-    path = traj / f"GT-{n:03d}.json"
-    default_steps = steps or [
-        "plan",
-        "implement",
-        "unittest",
-        "cycle-smoke",
-        "evidence",
-        "features pass",
-        "factory commit",
-    ]
-    payload = {
-        "id": f"GT-{n:03d}",
+    gtid = f"GT-{n:03d}"
+    path = traj / f"{gtid}.json"
+    step_seq = list(steps) if steps is not None else list(GOLDEN_TRAJECTORY_STEPS)
+    if not step_seq:
+        step_seq = list(GOLDEN_TRAJECTORY_STEPS)
+    payload: dict[str, Any] = {
+        "id": gtid,
+        "schema_version": 1,
         "feature_id": feature_id,
         "at": utc_now(),
         "git_head": _git_head(repo),
-        "steps": default_steps,
-        "signature": "dogfood-stub-v1",
+        "steps": step_seq,
+        "signature": GOLDEN_TRAJECTORY_SIGNATURE,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
