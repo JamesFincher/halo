@@ -428,8 +428,29 @@ ROADMAP_TEMPLATES: list[tuple[str, list[str]]] = [
     (
         "doctor warns when dogfood autonomous and scores directory empty",
         ['level warn code scores_empty', 'not an error so strict still passes'],
-    )
-
+    ),
+    # Batch 18+ — compound after D108 / scores culture
+    (
+        "features summary JSON includes top-level scores_count",
+        [
+            "summary has scores_count int (0 when dir missing/empty)",
+            "counts *.json under .halo/scores/",
+        ],
+    ),
+    (
+        "halo scores list CLI prints count and latest id",
+        [
+            "python halo_scores.py list --repo exits 0",
+            "JSON has count and latest fields",
+        ],
+    ),
+    (
+        "plan-latest includes trajectories_count alongside scores_count",
+        [
+            "study/write_plan sets trajectories_count int",
+            "0 when trajectories dir missing",
+        ],
+    ),
 ]
 
 
@@ -721,6 +742,17 @@ def _summary_next(feat: dict[str, Any] | None) -> dict[str, Any] | None:
     return out
 
 
+def _scores_count(repo: Path) -> int:
+    """Count score stub JSON files under .halo/scores/ (D109)."""
+    scores = repo / ".halo" / "scores"
+    if not scores.is_dir():
+        return 0
+    try:
+        return sum(1 for p in scores.iterdir() if p.is_file() and p.suffix == ".json")
+    except OSError:
+        return 0
+
+
 def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
     """Pass/fail counts. Optionally auto-seed compounding batch when all_pass (D030)."""
     if compound:
@@ -740,6 +772,7 @@ def summary(repo: Path, *, compound: bool = True) -> dict[str, Any]:
         "remaining": total - passed,
         "all_pass": total > 0 and passed == total,
         "next": nxt,
+        "scores_count": _scores_count(repo),
         "features": feats,
     }
 
